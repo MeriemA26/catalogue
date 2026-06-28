@@ -235,6 +235,220 @@ def upload(request):
     return render(request, 'upload.html', context)
 
 
+def upload_stream(request):
+    """
+    Vue SSE : reçoit l'image uploadée, lance le pipeline produit par produit,
+    et envoie chaque produit au client dès qu'il est prêt via Server-Sent Events.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST requis'}, status=405)
+
+    form = UploadForm(request.POST, request.FILES)
+    if not form.is_valid():
+        return JsonResponse({'error': str(form.errors)}, status=400)
+
+    enseigne    = form.cleaned_data['enseigne']
+    date_debut  = form.cleaned_data['date_debut']
+    date_fin    = form.cleaned_data['date_fin']
+    image       = form.cleaned_data['image']
+
+    # Créer ou récupérer le catalogue
+    catalogue, _ = Catalogue.objects.get_or_create(
+        enseigne=enseigne,
+        date_debut=date_debut,
+        date_fin=date_fin,
+        defaults={'date_upload': timezone.now()}
+    )
+
+    # Sauvegarder l'image catalogue
+    image_name = f'{enseigne.nom}_{date_debut}_{date_fin}_{image.name}'
+    image_path = default_storage.save(
+        f'catalogues/{image_name}',
+        ContentFile(image.read())
+    )
+    catalogue.image_path = image_path
+    catalogue.save()
+
+    full_path = os.path.join(settings.MEDIA_ROOT, image_path)
+    media_image_url = os.path.join(settings.MEDIA_URL, image_path)
+
+    def event_stream():
+        # Sauvegarder l'URL de l'image en session via un signal JSON spécial
+        yield f"data: {json.dumps({'type': 'catalogue', 'image_url': media_image_url, 'catalogue_id': catalogue.id})}\n\n"
+
+        ocr = OCRProcessor()
+
+        try:
+            from .pipeline import (
+                get_product_model, get_field_model, get_ocr_readers,
+                FIELD_CLASS_MAP, image_to_base64,
+                extract_price, extract_percentage, extract_text,
+                _detect_language
+            )
+            import cv2, torch, re, base64 as b64
+
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            product_model = get_product_model()
+            field_model   = get_field_model()
+            reader_latin, reader_ar = get_ocr_readers()
+
+            image_cv = cv2.imread(full_path)
+            if image_cv is None:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Impossible de lire l image'})}\n\n"
+                return
+
+            product_results = product_model(full_path, conf=0.5, verbose=False, device=device)[0]
+            total = len(product_results.boxes)
+            yield f"data: {json.dumps({'type': 'total', 'count': total})}\n\n"
+
+            if total == 0:
+                yield f"data: {json.dumps({'type': 'done', 'count': 0})}\n\n"
+                return
+
+            for idx, box in enumerate(product_results.boxes):
+                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                crop = image_cv[y1:y2, x1:x2]
+                if crop.size == 0:
+                    continue
+
+                data = {
+                    'nom_fr': '', 'nom_ar': '', 'marque': '',
+                    'prix': None, 'prix_avant': None, 'pourcentage': None,
+                    'remise': '', 'description': '', 'description_2': '', 'description_3': '',
+                    'product_image_b64': image_to_base64(crop),
+                }
+
+                field_results = field_model.predict(crop, conf=0.5, device=device, verbose=False)[0]
+                field_names   = field_results.names
+                extracted_pct = extracted_prix = extracted_prix_avant = None
+
+                for fbox, fcls in zip(field_results.boxes.xyxy.cpu().numpy(), field_results.boxes.cls.cpu().numpy()):
+                    fx1, fy1, fx2, fy2 = map(int, fbox)
+                    class_name = field_names[int(fcls)]
+                    roi = crop[fy1:fy2, fx1:fx2]
+                    if roi.size == 0:
+                        continue
+                    target = FIELD_CLASS_MAP.get(class_name)
+                    if target is None:
+                        continue
+
+                    if class_name == 'product_AR':
+                        data['nom_ar'] = extract_text(roi, reader_ar)
+                    elif class_name == 'product_name':
+                        data['nom_fr'] = extract_text(roi, reader_latin)
+                    elif class_name == 'brand':
+                        v = extract_text(roi, reader_latin)
+                        data['marque'] = v or extract_text(roi, reader_ar)
+                    elif class_name == 'price':
+                        v = extract_price(roi)
+                        if v:
+                            data['prix'] = float(v)
+                            extracted_prix = float(v)
+                    elif class_name == 'price_before':
+                        v = extract_price(roi)
+                        if v:
+                            data['prix_avant'] = float(v)
+                            extracted_prix_avant = float(v)
+                    elif class_name == 'pct':
+                        v = extract_percentage(roi)
+                        if v:
+                            data['pourcentage'] = float(v)
+                            extracted_pct = float(v)
+                    elif class_name in ('description', 'description2', 'description3'):
+                        v = extract_text(roi, reader_latin) or extract_text(roi, reader_ar)
+                        if v:
+                            v = re.sub(r'[^\w\s\u0600-\u06FF\.\,\-\(\)\:]+', ' ', v)
+                            v = re.sub(r'\s+', ' ', v).strip()
+                        key = {'description': 'description', 'description2': 'description_2', 'description3': 'description_3'}[class_name]
+                        data[key] = v or ''
+
+                # Calcul prix
+                if extracted_pct and 1 <= extracted_pct <= 100:
+                    data['pourcentage'] = extracted_pct
+                    if extracted_prix:
+                        data['prix_avant'] = round(extracted_prix / (1 - extracted_pct / 100), 3)
+                    elif extracted_prix_avant:
+                        data['prix'] = round(extracted_prix_avant * (1 - extracted_pct / 100), 3)
+                elif extracted_prix and extracted_prix_avant and extracted_prix_avant > 0:
+                    if extracted_prix < extracted_prix_avant:
+                        pct = round((1 - extracted_prix / extracted_prix_avant) * 100, 2)
+                        if 1 <= pct <= 100:
+                            data['pourcentage'] = pct
+
+                # Créer le produit en DB
+                nom_fr = data['nom_fr'].strip()
+                nom_ar = data['nom_ar'].strip()
+                nom_affiche = nom_fr or nom_ar or f"Produit {idx + 1}"
+
+                description   = data.get('description', '') or ''
+                description_2 = data.get('description_2', '') or ''
+                description_3 = data.get('description_3', '') or ''
+                if not description and (description_2 or description_3):
+                    description, description_2, description_3 = description_2, description_3, ''
+
+                remise_val = data.get('remise')
+                if isinstance(remise_val, str) and '%' in remise_val:
+                    remise_val = None
+
+                image_produit = None
+                if data.get('product_image_b64'):
+                    try:
+                        img_data = b64.b64decode(data['product_image_b64'])
+                        ts = int(timezone.now().timestamp())
+                        image_produit = ContentFile(img_data, f'produit_{catalogue.id}_{idx}_{ts}.jpg')
+                    except Exception:
+                        pass
+
+                produit = Produit(
+                    catalogue=catalogue,
+                    nom=nom_affiche,
+                    nom_fr=nom_fr or None,
+                    nom_ar=nom_ar or None,
+                    marque=data.get('marque') or None,
+                    prix=data.get('prix'),
+                    prix_avant=data.get('prix_avant'),
+                    pourcentage=data.get('pourcentage'),
+                    remise=remise_val or None,
+                    description=description or None,
+                    description_2=description_2 or None,
+                    description_3=description_3 or None,
+                    extrait_texte=f"Marque: {data.get('marque','')} - {description}" or None,
+                    image_produit=image_produit,
+                )
+                produit.save()
+
+                # Préparer la payload SSE
+                payload = {
+                    'type': 'product',
+                    'index': idx + 1,
+                    'id': produit.id,
+                    'nom': nom_affiche,
+                    'nom_fr': nom_fr,
+                    'nom_ar': nom_ar,
+                    'marque': data.get('marque', ''),
+                    'prix': str(produit.prix) if produit.prix is not None else '',
+                    'prix_avant': str(produit.prix_avant) if produit.prix_avant is not None else '',
+                    'pourcentage': str(int(produit.pourcentage)) if produit.pourcentage is not None else '',
+                    'description': description[:80] if description else '',
+                    'description_2': description_2[:80] if description_2 else '',
+                    'description_3': description_3[:80] if description_3 else '',
+                    'image_url': produit.image_produit.url if produit.image_produit else '',
+                }
+                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+            yield f"data: {json.dumps({'type': 'done', 'count': total})}\n\n"
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
+    return response
+
+
 def edit_product(request, product_id):
     """Éditer un produit individuel"""
     produit = get_object_or_404(Produit, id=product_id)

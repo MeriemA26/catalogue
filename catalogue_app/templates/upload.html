@@ -12,7 +12,7 @@
         <div class="alert alert-success">
             <label class="form-label fw-bold">📷 Image du catalogue actuel :</label>
             <div class="border p-2 text-center" style="background-color: #f8f9fa;">
-                <img src="{{ last_uploaded_image }}" 
+                <img id="lastCatalogueImg" src="{{ last_uploaded_image }}" 
                      alt="Catalogue actuel" 
                      class="img-fluid" 
                      style="max-height: 400px; object-fit: contain;">
@@ -22,7 +22,7 @@
 </div>
 {% endif %}
 
-<form method="post" enctype="multipart/form-data" class="mb-4" id="uploadForm">
+<form enctype="multipart/form-data" class="mb-4" id="uploadForm">
     {% csrf_token %}
     <div class="row">
         <div class="col-md-3">
@@ -42,7 +42,7 @@
             {{ form.image }}
         </div>
     </div>
-    
+
     <!-- Preview de l'image avant upload -->
     <div class="row mt-3">
         <div class="col-md-12">
@@ -54,11 +54,24 @@
             </div>
         </div>
     </div>
-    
-    <button type="submit" class="btn btn-primary mt-3">
+
+    <button type="button" class="btn btn-primary mt-3" id="uploadBtn">
         <i class="fas fa-upload"></i> Uploader
     </button>
 </form>
+
+<!-- Barre de progression SSE -->
+<div id="streamProgress" style="display:none;" class="mt-3">
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <div class="spinner-border spinner-border-sm text-primary" id="streamSpinner"></div>
+        <span id="streamStatus" class="fw-bold">Traitement en cours...</span>
+    </div>
+    <div class="progress" style="height: 8px;">
+        <div id="streamBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+             role="progressbar" style="width: 0%"></div>
+    </div>
+    <small class="text-muted" id="streamCounter"></small>
+</div>
 
 {% if produits_non_sauvegardes > 0 %}
     <div class="card mt-4">
@@ -122,7 +135,7 @@
                                         </td>
 <!-- Lignes à modifier -->
 
-                                <!-- Prix -->
+                                    <!-- Prix -->
                                 <td>
                                     {% if produit.prix %}
                                         <span class="fw-bold text-success">{{ produit.prix }}</span>
@@ -217,69 +230,233 @@
 
 {% block scripts %}
 <script>
-$(document).ready(function() {
-    // Sélectionner/désélectionner tous
-    $('#selectAll').change(function() {
+$(document).ready(function () {
+
+    // Selectionner/deselectionner tous (table existante au chargement)
+    $(document).on('change', '#selectAll', function () {
         $('input[name="selected_products"]').prop('checked', $(this).prop('checked'));
     });
-    
-    // Preview de l'image du catalogue
-    $('#id_image').change(function() {
+    $(document).on('change', '#selectAll2', function () {
+        $('input[name="selected_products"]').prop('checked', $(this).prop('checked'));
+    });
+
+    // Preview image avant upload
+    $('#id_image').change(function () {
         var file = this.files[0];
         if (file) {
             var reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = function (e) {
                 $('#previewImage').attr('src', e.target.result);
                 $('#imagePreview').show();
-                $('html, body').animate({
-                    scrollTop: $('#imagePreview').offset().top - 100
-                }, 500);
+                $('html, body').animate({ scrollTop: $('#imagePreview').offset().top - 100 }, 500);
             };
             reader.readAsDataURL(file);
         } else {
             $('#imagePreview').hide();
         }
     });
-    
-    // Agrandir l'image au clic
-    $('img[alt]').click(function() {
-        var src = $(this).attr('src');
-        $('#modalImage').attr('src', src);
+
+    // Agrandir image au clic
+    $(document).on('click', '.product-thumb', function () {
+        $('#modalImage').attr('src', $(this).attr('src'));
         $('#imageModal').modal('show');
     });
-    
-    // Confirmation avant suppression
-    $('#deleteSelectedBtn, #deleteAllBtn').click(function(e) {
+
+    // Confirmations suppression
+    $(document).on('click', '#deleteSelectedBtn, #deleteAllBtn', function (e) {
         var action = $(this).text().trim();
-        if (!confirm('⚠️ Êtes-vous sûr de vouloir ' + action + ' ? Cette action est irréversible.')) {
-            e.preventDefault();
-            return false;
+        if (!confirm("Etes-vous sur de vouloir " + action + " ? Cette action est irreversible.")) {
+            e.preventDefault(); return false;
         }
     });
-    
-    // Vérifier qu'au moins un produit est sélectionné
-    $('#saveSelectedBtn, #deleteSelectedBtn').click(function(e) {
-        var checked = $('input[name="selected_products"]:checked').length;
-        if (checked === 0) {
-            alert('⚠️ Veuillez sélectionner au moins un produit.');
-            e.preventDefault();
-            return false;
+
+    // Verifier selection
+    $(document).on('click', '#saveSelectedBtn, #deleteSelectedBtn', function (e) {
+        if ($('input[name="selected_products"]:checked').length === 0) {
+            alert("Veuillez selectionner au moins un produit.");
+            e.preventDefault(); return false;
         }
     });
-    
-    // Confirmation pour "Sauvegarder tous"
-    $('#saveAllBtn').click(function(e) {
+
+    // Confirmation Sauvegarder tous
+    $(document).on('click', '#saveAllBtn', function (e) {
         var count = $('input[name="selected_products"]').length;
-        if (count === 0) {
-            alert('⚠️ Aucun produit à sauvegarder.');
-            e.preventDefault();
-            return false;
-        }
-        if (!confirm('✅ Voulez-vous sauvegarder les ' + count + ' produits et voir la liste ?')) {
-            e.preventDefault();
-            return false;
+        if (count === 0) { alert("Aucun produit a sauvegarder."); e.preventDefault(); return false; }
+        if (!confirm("Voulez-vous sauvegarder les " + count + " produits ?")) {
+            e.preventDefault(); return false;
         }
     });
+
+    // ================================================================
+    //  UPLOAD SSE
+    // ================================================================
+    $('#uploadBtn').click(function () {
+        var form = document.getElementById('uploadForm');
+        var fd = new FormData(form);
+
+        if (!fd.get('image') || fd.get('image').size === 0) {
+            alert("Veuillez selectionner une image.");
+            return;
+        }
+
+        $('#uploadBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Traitement...');
+        $('#streamProgress').show();
+        $('#streamBar').css('width', '0%');
+        $('#streamStatus').text("Envoi de l'image...");
+        $('#streamCounter').text('');
+
+        var totalProduits = 0;
+        var nbTraites = 0;
+
+        fetch("{% url 'upload_stream' %}", {
+            method: 'POST',
+            body: fd
+        }).then(function (response) {
+            if (!response.ok) { throw new Error('Erreur HTTP ' + response.status); }
+
+            var reader = response.body.getReader();
+            var decoder = new TextDecoder();
+            var buf = '';
+
+            function readChunk() {
+                return reader.read().then(function (result) {
+                    if (result.done) {
+                        $('#streamSpinner').hide();
+                        $('#streamStatus').text('Traitement termine !');
+                        $('#uploadBtn').prop('disabled', false).html('<i class="fas fa-upload"></i> Uploader');
+                        return;
+                    }
+
+                    buf += decoder.decode(result.value, { stream: true });
+                    var parts = buf.split("\n");
+                    buf = parts.pop();
+
+                    parts.forEach(function (line) {
+                        if (!line.startsWith('data: ')) return;
+                        var raw = line.slice(6).trim();
+                        if (!raw) return;
+                        try { handleSSE(JSON.parse(raw)); } catch (e) {}
+                    });
+
+                    return readChunk();
+                });
+            }
+            return readChunk();
+
+        }).catch(function (err) {
+            $('#streamStatus').text('Erreur : ' + err.message);
+            $('#uploadBtn').prop('disabled', false).html('<i class="fas fa-upload"></i> Uploader');
+        });
+
+        function handleSSE(evt) {
+            if (evt.type === 'catalogue') {
+                if (evt.image_url) {
+                    $('#lastCatalogueImg').attr('src', evt.image_url).closest('.alert').show();
+                }
+                $('#streamStatus').text('Detection des produits...');
+
+            } else if (evt.type === 'total') {
+                totalProduits = evt.count;
+                if (totalProduits === 0) {
+                    $('#streamStatus').text('Aucun produit detecte.');
+                } else {
+                    $('#streamStatus').text('Extraction en cours... (' + totalProduits + ' produits)');
+                }
+
+            } else if (evt.type === 'product') {
+                nbTraites++;
+                var pct = totalProduits > 0 ? Math.round((nbTraites / totalProduits) * 100) : 100;
+                $('#streamBar').css('width', pct + '%');
+                $('#streamCounter').text(nbTraites + ' / ' + (totalProduits || '?') + ' produits traites');
+                appendProductRow(evt);
+                $('#productSection').show();
+
+            } else if (evt.type === 'done') {
+                $('#streamBar').css('width', '100%').removeClass('progress-bar-animated');
+                $('#streamSpinner').hide();
+                $('#streamStatus').text(evt.count + ' produits extraits et enregistres.');
+                $('#streamCounter').text('Vous pouvez maintenant verifier et sauvegarder.');
+                $('#pendingBadge').text(nbTraites + ' produits en attente');
+
+            } else if (evt.type === 'error') {
+                $('#streamStatus').text('Erreur : ' + evt.message);
+                $('#uploadBtn').prop('disabled', false).html('<i class="fas fa-upload"></i> Uploader');
+            }
+        }
+
+        function appendProductRow(p) {
+            if ($('#productTableBody').length === 0) {
+                buildTableSection();
+            }
+
+            var imgHtml = p.image_url
+                ? '<img src="' + p.image_url + '" class="product-thumb" style="width:60px;height:60px;object-fit:cover;border-radius:5px;border:1px solid #ddd;cursor:pointer;" title="Cliquer pour agrandir">'
+                : '<span class="text-muted"><i class="fas fa-image"></i></span>';
+
+            var prixHtml      = p.prix       ? '<span class="fw-bold text-success">'               + escHtml(p.prix)       + '</span>' : '';
+            var prixAvantHtml = p.prix_avant  ? '<span class="text-decoration-line-through text-danger">' + escHtml(p.prix_avant) + '</span>' : '';
+            var pctHtml       = p.pourcentage ? '<span class="badge bg-danger">'                    + escHtml(p.pourcentage) + '%</span>' : '';
+
+            var rowNum = $('#productTableBody tr').length + 1;
+
+            var row = $('<tr id="prod-row-' + p.id + '">').html(
+                '<td><input type="checkbox" name="selected_products" value="' + p.id + '"></td>' +
+                '<td>' + rowNum + '</td>' +
+                '<td>' + imgHtml + '</td>' +
+                '<td>' + escHtml(p.nom_fr) + '</td>' +
+                '<td>' + escHtml(p.nom_ar) + '</td>' +
+                '<td>' + escHtml(p.marque) + '</td>' +
+                '<td>' + prixHtml + '</td>' +
+                '<td>' + prixAvantHtml + '</td>' +
+                '<td>' + pctHtml + '</td>' +
+                '<td>' + escHtml(p.description) + '</td>' +
+                '<td>' + escHtml(p.description_2) + '</td>' +
+                '<td>' + escHtml(p.description_3) + '</td>' +
+                '<td><a href="/catalogue/product/edit/' + p.id + '/" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a></td>'
+            );
+
+            $('#productTableBody').append(row);
+            row.hide().fadeIn(400);
+            $('html, body').animate({ scrollTop: row.offset().top - 200 }, 300);
+        }
+
+        function buildTableSection() {
+            if ($('#productSection').length) return;
+            var csrf = $('[name=csrfmiddlewaretoken]').first().val();
+            var section = $(
+                '<div class="card mt-4" id="productSection">' +
+                '<div class="card-header d-flex justify-content-between align-items-center">' +
+                '<h4>Produits du catalogue en cours</h4>' +
+                '<span class="badge bg-warning" id="pendingBadge">0 produits en attente</span>' +
+                '</div><div class="card-body">' +
+                '<form method="post" id="productForm">' +
+                '<input type="hidden" name="csrfmiddlewaretoken" value="' + csrf + '">' +
+                '<div class="table-responsive">' +
+                '<table class="table table-striped table-hover">' +
+                '<thead><tr>' +
+                '<th><input type="checkbox" id="selectAll2"></th>' +
+                '<th>#</th><th>Image</th><th>Nom (FR)</th><th>Nom (AR)</th>' +
+                '<th>Marque</th><th>Prix</th><th>Prix Avant</th><th>%</th>' +
+                '<th>Description</th><th>Description 2</th><th>Description 3</th><th>Actions</th>' +
+                '</tr></thead>' +
+                '<tbody id="productTableBody"></tbody>' +
+                '</table></div>' +
+                '<div class="btn-group mt-2" role="group">' +
+                '<button type="submit" formaction="{% url "save_selected_products" %}" class="btn btn-success" id="saveSelectedBtn">Sauvegarder selectionnes</button>' +
+                '<button type="submit" formaction="{% url "save_all_products" %}" class="btn btn-primary" id="saveAllBtn">Sauvegarder tous</button>' +
+                '<button type="submit" formaction="{% url "delete_selected_products" %}" class="btn btn-danger" id="deleteSelectedBtn">Supprimer selectionnes</button>' +
+                '<button type="submit" formaction="{% url "delete_all_products" %}" class="btn btn-dark" id="deleteAllBtn">Supprimer tous</button>' +
+                '</div></form></div></div>'
+            );
+            $('#streamProgress').after(section);
+        }
+
+        function escHtml(str) {
+            if (!str) return '';
+            return $('<div>').text(str).html();
+        }
+    });
+
 });
 </script>
 {% endblock %}
