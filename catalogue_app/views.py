@@ -522,57 +522,104 @@ def update_product_field(request):
 def save_selected_products(request):
     """Sauvegarder les produits sélectionnés (depuis la base de données)"""
     if request.method == 'POST':
+        print("=" * 80)
+        print("🔍 DEBUG COMPLET - SAVE SELECTED PRODUCTS")
+        print("=" * 80)
+        
+        # 1. Afficher toutes les données POST
+        print(f"📋 Données POST complètes:")
+        for key, value in request.POST.items():
+            print(f"   {key}: {value}")
+        print("-" * 80)
+        
         try:
             product_ids = request.POST.getlist('selected_products')
+            print(f"📦 IDs des produits sélectionnés: {product_ids}")
+            
             if not product_ids:
                 messages.warning(request, 'Aucun produit sélectionné.')
                 return redirect('upload')
             
-            # Récupérer les produits depuis la base de données
-            print(f"Recherche des produits avec IDs: {product_ids}")
+            # 2. Récupérer les produits
             produits = Produit.objects.filter(id__in=product_ids, est_sauvegarde=False)
-            print(f"Produits trouvés: {produits.count()}")
+            print(f"🔎 Produits trouvés (non sauvegardés): {produits.count()}")
             
-            # Afficher les détails des produits trouvés
+            # 3. Afficher les détails de chaque produit
             for p in produits:
-                print(f"  Produit ID: {p.id} - Nom: {p.nom} - est_sauvegarde: {p.est_sauvegarde}")
+                print(f"\n📄 Produit ID: {p.id}")
+                print(f"   Nom: {p.nom}")
+                print(f"   Nom FR: {p.nom_fr}")
+                print(f"   Nom AR: {p.nom_ar}")
+                print(f"   Marque: {p.marque}")
+                print(f"   Prix: {p.prix}")
+                print(f"   Prix avant: {p.prix_avant}")
+                print(f"   Pourcentage: {p.pourcentage}")
+                print(f"   est_sauvegarde: {p.est_sauvegarde}")
+                
+                # 4. Vérifier le catalogue associé
+                if p.catalogue:
+                    print(f"   📂 Catalogue ID: {p.catalogue.id}")
+                    print(f"   Enseigne ID: {p.catalogue.enseigne.id if p.catalogue.enseigne else 'None'}")
+                    print(f"   Enseigne nom: {p.catalogue.enseigne.nom if p.catalogue.enseigne else 'None'}")
+                    print(f"   Date début: {p.catalogue.date_debut}")
+                    print(f"   Date fin: {p.catalogue.date_fin}")
+                    print(f"   Image path: {p.catalogue.image_path}")
+                else:
+                    print(f"   ⚠️ AUCUN CATALOGUE ASSOCIÉ !")
+                print("-" * 40)
             
             count = produits.count()
             
-            # Vérifier si les produits existent mais sont déjà sauvegardés
-            produits_existants = Produit.objects.filter(id__in=product_ids)
-            print(f"Produits existants (même sauvegardés): {produits_existants.count()}")
-            for p in produits_existants:
-                print(f"  Produit ID: {p.id} - est_sauvegarde: {p.est_sauvegarde}")
-            
             if count == 0:
-                # Vérifier si les produits existent dans la base
+                # Vérifier si les produits existent mais sont déjà sauvegardés
+                produits_existants = Produit.objects.filter(id__in=product_ids)
                 if produits_existants.count() > 0:
+                    for p in produits_existants:
+                        print(f"⚠️ Produit {p.id} existe mais est_sauvegarde={p.est_sauvegarde}")
                     messages.warning(request, 'Les produits sélectionnés sont déjà sauvegardés.')
                 else:
                     messages.warning(request, 'Produits non trouvés dans la base de données.')
                 return redirect('upload')
             
+            # 5. TENTATIVE DE SAUVEGARDE
+            print("\n💾 Tentative de sauvegarde des produits...")
+            
+            # Avant la mise à jour
+            print(f"   Avant update: {produits.count()} produits vont être modifiés")
+            
             # Marquer comme sauvegardés
             produits.update(est_sauvegarde=True)
             
-            # Vérifier s'il reste des produits non sauvegardés
+            # Après la mise à jour
+            produits_apres = Produit.objects.filter(id__in=product_ids)
+            print(f"   Après update: {produits_apres.count()} produits modifiés")
+            for p in produits_apres:
+                print(f"      ID {p.id} - est_sauvegarde: {p.est_sauvegarde}")
+            
+            # 6. Vérifier s'il reste des produits non sauvegardés
             restants = Produit.objects.filter(est_sauvegarde=False).count()
+            print(f"\n📊 Produits restants non sauvegardés: {restants}")
+            
+            # 7. Afficher tous les produits non sauvegardés
+            if restants > 0:
+                print("\n📋 Liste des produits encore non sauvegardés:")
+                for p in Produit.objects.filter(est_sauvegarde=False)[:10]:
+                    print(f"   ID: {p.id} - Nom: {p.nom} - Catalogue: {p.catalogue.id if p.catalogue else 'None'}")
             
             if restants == 0:
-                messages.success(request, f'Tous les produits sont maintenant sauvegardés !')
+                messages.success(request, 'Tous les produits sont maintenant sauvegardés !')
             else:
                 messages.success(request, f'{count} produits sauvegardés ! Il reste {restants} produit(s) en attente.')
             
         except Exception as e:
-            print(f"Erreur: {e}")
+            print(f"\n❌ ERREUR: {e}")
             import traceback
             traceback.print_exc()
             messages.error(request, f"Erreur lors de la sauvegarde: {str(e)}")
         
+        print("=" * 80)
         return redirect('upload')
     return redirect('upload')
-
 
 def save_all_products(request):
     """Sauvegarder tous les produits et rediriger vers product_list"""
