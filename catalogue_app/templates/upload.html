@@ -392,11 +392,24 @@ $(document).ready(function () {
             var imgHtml = p.image_url
                 ? '<img src="' + p.image_url + '" class="product-thumb" style="width:60px;height:60px;object-fit:cover;border-radius:5px;border:1px solid #ddd;cursor:pointer;" title="Cliquer pour agrandir">'
                 : '<span class="text-muted"><i class="fas fa-image"></i></span>';
+                
+            var prixHtml = '';
+            if (p.prix) {
+                var prix = parseFloat(p.prix);
+                if (!isNaN(prix)) {
+                    prixHtml = '<span class="fw-bold text-success">' + prix.toFixed(3) + '</span>';
+                }
+            }
 
-            var prixHtml      = p.prix       ? '<span class="fw-bold text-success">'               + escHtml(p.prix)       + '</span>' : '';
-            var prixAvantHtml = p.prix_avant  ? '<span class="text-decoration-line-through text-danger">' + escHtml(p.prix_avant) + '</span>' : '';
-            var pctHtml       = p.pourcentage ? '<span class="badge bg-danger">'                    + escHtml(p.pourcentage) + '%</span>' : '';
+            var prixAvantHtml = '';
+            if (p.prix_avant) {
+                var prixAvant = parseFloat(p.prix_avant);
+                if (!isNaN(prixAvant)) {
+                    prixAvantHtml = '<span class="text-decoration-line-through text-danger">' + prixAvant.toFixed(3) + '</span>';
+                }
+            }
 
+            var pctHtml = p.pourcentage ? '<span class="badge bg-danger">' + p.pourcentage + '%</span>' : '';
             var rowNum = $('#productTableBody tr').length + 1;
 
             var row = $('<tr id="prod-row-' + p.id + '">').html(

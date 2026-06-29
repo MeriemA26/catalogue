@@ -520,31 +520,34 @@ def update_product_field(request):
 
 
 def save_selected_products(request):
-    """Sauvegarder les produits sélectionnés"""
+    """Sauvegarder les produits sélectionnés (depuis la base de données)"""
     if request.method == 'POST':
-        product_ids = request.POST.getlist('selected_products')
-        if not product_ids:
-            messages.warning(request, 'Aucun produit selectionne.')
-            return redirect('upload')
-        
         try:
-            produits = Produit.objects.filter(id__in=product_ids)
+            product_ids = request.POST.getlist('selected_products')
+            if not product_ids:
+                messages.warning(request, 'Aucun produit sélectionné.')
+                return redirect('upload')
+            
+            # Récupérer les produits depuis la base de données
+            produits = Produit.objects.filter(id__in=product_ids, est_sauvegarde=False)
             count = produits.count()
             
             if count == 0:
-                messages.warning(request, 'Produits non trouves.')
+                messages.warning(request, 'Produits non trouvés ou déjà sauvegardés.')
                 return redirect('upload')
             
+            # Marquer comme sauvegardés
             produits.update(est_sauvegarde=True)
             
+            # Vérifier s'il reste des produits non sauvegardés
             restants = Produit.objects.filter(est_sauvegarde=False).count()
             
             if restants == 0:
                 if 'last_uploaded_image' in request.session:
                     del request.session['last_uploaded_image']
-                messages.info(request, 'Tous les produits sont maintenant sauvegardes !')
+                messages.info(request, 'Tous les produits sont maintenant sauvegardés !')
             else:
-                messages.success(request, f'{count} produits sauvegardes ! Il reste {restants} produit(s) en attente.')
+                messages.success(request, f'{count} produits sauvegardés ! Il reste {restants} produit(s) en attente.')
             
         except Exception as e:
             messages.error(request, f"Erreur lors de la sauvegarde: {str(e)}")
@@ -579,21 +582,23 @@ def save_all_products(request):
 
 
 def delete_selected_products(request):
-    """Supprimer les produits sélectionnés"""
+    """Supprimer les produits sélectionnés (depuis la base de données)"""
     if request.method == 'POST':
-        product_ids = request.POST.getlist('selected_products')
-        if not product_ids:
-            messages.warning(request, 'Aucun produit selectionne.')
-            return redirect('upload')
-        
         try:
-            produits = Produit.objects.filter(id__in=product_ids)
+            product_ids = request.POST.getlist('selected_products')
+            if not product_ids:
+                messages.warning(request, 'Aucun produit sélectionné.')
+                return redirect('upload')
+            
+            # Récupérer les produits depuis la base de données
+            produits = Produit.objects.filter(id__in=product_ids, est_sauvegarde=False)
             count = produits.count()
             
             if count == 0:
-                messages.warning(request, 'Produits non trouves.')
+                messages.warning(request, 'Produits non trouvés ou déjà sauvegardés.')
                 return redirect('upload')
             
+            # Supprimer les images associées
             for produit in produits:
                 if produit.image_produit:
                     try:
@@ -605,14 +610,15 @@ def delete_selected_products(request):
             
             produits.delete()
             
+            # Vérifier s'il reste des produits non sauvegardés
             restants = Produit.objects.filter(est_sauvegarde=False).count()
             
             if restants == 0:
                 if 'last_uploaded_image' in request.session:
                     del request.session['last_uploaded_image']
-                messages.info(request, 'Tous les produits ont ete supprimes.')
+                messages.info(request, 'Tous les produits ont été supprimés.')
             else:
-                messages.success(request, f'{count} produits supprimes ! Il reste {restants} produit(s).')
+                messages.success(request, f'{count} produits supprimés ! Il reste {restants} produit(s).')
             
         except Exception as e:
             messages.error(request, f"Erreur lors de la suppression: {str(e)}")
@@ -620,18 +626,19 @@ def delete_selected_products(request):
         return redirect('upload')
     return redirect('upload')
 
-
 def delete_all_products(request):
-    """Supprimer tous les produits non sauvegardés"""
+    """Supprimer tous les produits non sauvegardés (depuis la base de données)"""
     if request.method == 'POST':
         try:
+            # Récupérer tous les produits non sauvegardés
             produits = Produit.objects.filter(est_sauvegarde=False)
             count = produits.count()
             
             if count == 0:
-                messages.info(request, 'Aucun produit a supprimer.')
+                messages.info(request, 'Aucun produit à supprimer.')
                 return redirect('upload')
             
+            # Supprimer les images associées
             for produit in produits:
                 if produit.image_produit:
                     try:
@@ -646,14 +653,13 @@ def delete_all_products(request):
             if 'last_uploaded_image' in request.session:
                 del request.session['last_uploaded_image']
             
-            messages.success(request, f'{count} produits supprimes !')
+            messages.success(request, f'{count} produits supprimés !')
             
         except Exception as e:
             messages.error(request, f"Erreur lors de la suppression: {str(e)}")
         
         return redirect('upload')
     return redirect('upload')
-
 
 def product_list(request):
     """Liste des produits du dernier catalogue sauvegardé"""
@@ -723,33 +729,6 @@ def get_catalogue_image(request, catalogue_id):
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Methode non autorisee'})
 
-def _clean_value(self, value):
-        """Nettoie une valeur pour la conversion en Decimal"""
-        if value is None:
-            return None
-        if isinstance(value, (int, float, Decimal)):
-            # Vérifier que le prix n'est pas aberrant
-            val = float(value)
-            if val > 1000:  # Si le prix > 1000, c'est probablement une erreur OCR
-                print(f"⚠️ Prix aberrant détecté: {val}, ignoré")
-                return None
-            return Decimal(str(value))
-        if isinstance(value, str):
-            # Enlever les caractères non numériques sauf le point et la virgule
-            cleaned = ''.join(c for c in value if c.isdigit() or c in ['.', ','])
-            if not cleaned:
-                return None
-            cleaned = cleaned.replace(',', '.')
-            try:
-                val = float(cleaned)
-                # Vérifier que le prix n'est pas aberrant
-                if val > 1000:
-                    print(f"⚠️ Prix aberrant détecté: {val}, ignoré")
-                    return None
-                return Decimal(cleaned)
-            except:
-                return None
-        return None
 def get_recent_products(request):
     """Récupère les produits non sauvegardés récents"""
     produits = Produit.objects.filter(est_sauvegarde=False).order_by('-created_at')[:10]

@@ -230,4 +230,3 @@ class OCRProcessor:
         
         produits.append(produit)
         return produits
-    

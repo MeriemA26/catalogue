@@ -42,6 +42,8 @@
                             <th>Prix Avant</th>
                             <th>%</th>
                             <th>Description</th>
+                            <th>Description 2</th>
+                            <th>Description 3</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -91,6 +93,16 @@
                             <td>
                                 {% if produit.description %}
                                     {{ produit.description|truncatechars:40 }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if produit.description_2 %}
+                                    {{ produit.description_2|truncatechars:30 }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if produit.description_3 %}
+                                    {{ produit.description_3|truncatechars:30 }}
                                 {% endif %}
                             </td>
                         </tr>
