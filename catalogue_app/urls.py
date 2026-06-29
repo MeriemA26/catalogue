@@ -5,7 +5,7 @@ from . import views
 urlpatterns = [
     path('', views.index, name='index'),
     path('upload/', views.upload, name='upload'),
-    path('edit/<int:product_id>/', views.edit_product, name='edit_product'),
+    path('product/edit/<int:product_id>/', views.edit_product, name='edit_product'),  # Changé ici
     path('update-field/', views.update_product_field, name='update_product_field'),
     path('save-selected/', views.save_selected_products, name='save_selected_products'),
     path('save-all/', views.save_all_products, name='save_all_products'),

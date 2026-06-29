@@ -1,27 +1,227 @@
+<!-- catalogue_app/templates/edit_product.html -->
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
-<h2>Édition du produit</h2>
+<h2>✏️ Édition du produit</h2>
+
+<!-- Image du produit -->
+{% if produit.image_produit %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h5>🖼️ Image du produit</h5>
+    </div>
+    <div class="card-body text-center">
+        <img src="{{ produit.image_produit.url }}" alt="{{ produit.nom }}" 
+             class="img-fluid" style="max-height: 300px; object-fit: contain;">
+    </div>
+</div>
+{% endif %}
 
 <div class="card">
     <div class="card-body">
-        <form method="post">
+        <form method="post" id="editProductForm">
             {% csrf_token %}
-            {{ form.as_p }}
-            <button type="submit" class="btn btn-success">
-                <i class="fas fa-save"></i> Enregistrer
-            </button>
-            <a href="{% url 'upload' %}" class="btn btn-secondary">Retour</a>
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.nom.id_for_label }}" class="form-label">Nom (affiché)</label>
+                        {{ form.nom }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.nom_fr.id_for_label }}" class="form-label">Nom (FR)</label>
+                        {{ form.nom_fr }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.nom_ar.id_for_label }}" class="form-label">Nom (AR)</label>
+                        {{ form.nom_ar }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.marque.id_for_label }}" class="form-label">Marque</label>
+                        {{ form.marque }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.prix.id_for_label }}" class="form-label">Prix (DT)</label>
+                        {{ form.prix }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.prix_avant.id_for_label }}" class="form-label">Prix avant (DT)</label>
+                        {{ form.prix_avant }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.pourcentage.id_for_label }}" class="form-label">Pourcentage (%)</label>
+                        {{ form.pourcentage }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.remise.id_for_label }}" class="form-label">Remise (DT)</label>
+                        {{ form.remise }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Action</label>
+                        <button type="button" class="btn btn-success w-100" id="calculateBtn">
+                            <i class="fas fa-calculator"></i> Appliquer le calcul
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Résultat du calcul -->
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="mb-3">
+                        <label class="form-label">📊 Résultat du calcul</label>
+                        <div id="resultDisplay" class="p-2 border rounded bg-light text-center">
+                            <span class="text-muted">Modifiez les valeurs et cliquez sur "Appliquer le calcul"</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+                        {{ form.description }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.description_2.id_for_label }}" class="form-label">Description 2</label>
+                        {{ form.description_2 }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.description_3.id_for_label }}" class="form-label">Description 3</label>
+                        {{ form.description_3 }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-save"></i> Enregistrer et calculer
+                </button>
+                <a href="{% url 'upload' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Retour
+                </a>
+            </div>
         </form>
     </div>
 </div>
 
-<div class="card mt-4">
-    <div class="card-header">
-        <h5>Informations extraites</h5>
-    </div>
-    <div class="card-body">
-        <pre>{{ produit.extrait_texte }}</pre>
-    </div>
-</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Fonction qui APPLIQUE les calculs directement dans les champs
+    function applyCalculation() {
+        // Récupérer les valeurs
+        let prix = parseFloat($('#id_prix').val().replace(',', '.')) || null;
+        let prixAvant = parseFloat($('#id_prix_avant').val().replace(',', '.')) || null;
+        let pourcentage = parseFloat($('#id_pourcentage').val()) || null;
+        let remise = parseFloat($('#id_remise').val().replace(',', '.')) || null;
+        
+        let result = '';
+        let changes = false;
+        
+        // 1. Si prix et prix_avant -> remise et pourcentage
+        if (prix !== null && prixAvant !== null && prixAvant > 0) {
+            if (prix < prixAvant) {
+                let newRemise = prixAvant - prix;
+                let newPourcentage = (newRemise / prixAvant) * 100;
+                
+                $('#id_remise').val(newRemise.toFixed(3));
+                $('#id_pourcentage').val(newPourcentage.toFixed(1));
+                changes = true;
+                result = `💰 Remise: ${newRemise.toFixed(3)} DT | 📊 %: ${newPourcentage.toFixed(1)}%`;
+            } else {
+                result = `⚠️ Le prix doit être inférieur au prix avant`;
+            }
+        }
+        // 2. Si prix et pourcentage -> prix_avant
+        else if (prix !== null && pourcentage !== null && pourcentage > 0 && pourcentage <= 100) {
+            let newPrixAvant = prix / (1 - pourcentage / 100);
+            let newRemise = newPrixAvant - prix;
+            
+            $('#id_prix_avant').val(newPrixAvant.toFixed(3));
+            $('#id_remise').val(newRemise.toFixed(3));
+            changes = true;
+            result = `💰 Prix avant: ${newPrixAvant.toFixed(3)} DT | 💰 Remise: ${newRemise.toFixed(3)} DT`;
+        }
+        // 3. Si prix_avant et pourcentage -> prix
+        else if (prixAvant !== null && pourcentage !== null && pourcentage > 0 && pourcentage <= 100) {
+            let newPrix = prixAvant * (1 - pourcentage / 100);
+            let newRemise = prixAvant - newPrix;
+            
+            $('#id_prix').val(newPrix.toFixed(3));
+            $('#id_remise').val(newRemise.toFixed(3));
+            changes = true;
+            result = `💰 Prix: ${newPrix.toFixed(3)} DT | 💰 Remise: ${newRemise.toFixed(3)} DT`;
+        }
+        // 4. Si prix et remise -> prix_avant et pourcentage
+        else if (prix !== null && remise !== null && remise > 0) {
+            let newPrixAvant = prix + remise;
+            let newPourcentage = (remise / newPrixAvant) * 100;
+            
+            $('#id_prix_avant').val(newPrixAvant.toFixed(3));
+            $('#id_pourcentage').val(newPourcentage.toFixed(1));
+            changes = true;
+            result = `💰 Prix avant: ${newPrixAvant.toFixed(3)} DT | 📊 %: ${newPourcentage.toFixed(1)}%`;
+        }
+        // 5. Aucune donnée
+        else {
+            result = 'Aucune donnée à calculer';
+        }
+        
+        // Afficher le résultat
+        if (changes) {
+            $('#resultDisplay').html(`
+                <span class="text-success">✅ Champs mis à jour !</span>
+                <br><small class="text-muted">${result}</small>
+            `);
+        } else if (result) {
+            $('#resultDisplay').html(`
+                <span class="text-warning">⚠️ ${result}</span>
+            `);
+        } else {
+            $('#resultDisplay').html(`
+                <span class="text-muted">Modifiez les valeurs et cliquez sur "Appliquer le calcul"</span>
+            `);
+        }
+    }
+
+    // Bouton "Appliquer le calcul" - remplit les champs
+    $('#calculateBtn').click(function() {
+        applyCalculation();
+    });
+});
+</script>
 {% endblock %}

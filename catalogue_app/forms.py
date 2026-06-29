@@ -6,7 +6,7 @@ class UploadForm(forms.Form):
     enseigne = forms.ModelChoiceField(
         queryset=Enseigne.objects.all(), 
         empty_label="Sélectionnez une enseigne",
-        widget=forms.Select(attrs={'class': 'form-control'})
+        widget=forms.Select(attrs={'class': 'form-select'})
     )
     date_debut = forms.DateField(
         widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
@@ -18,26 +18,42 @@ class UploadForm(forms.Form):
         widget=forms.FileInput(attrs={'class': 'form-control'})
     )
 
+
 class ProduitForm(forms.ModelForm):
     class Meta:
         model = Produit
-        fields = ['nom', 'prix', 'prix_avant', 'pourcentage', 'remise', 'description', 'extrait_texte']
+        fields = [
+            'nom', 'nom_fr', 'nom_ar', 'marque',
+            'prix', 'prix_avant', 'pourcentage', 'remise',
+            'description', 'description_2', 'description_3',
+            'extrait_texte'
+        ]
         widgets = {
-            'nom': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nom du produit'}),
-            'prix': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
-            'prix_avant': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
-            'pourcentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
-            'remise': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.00'}),
+            'nom': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nom du produit (affiché)'}),
+            'nom_fr': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nom en français'}),
+            'nom_ar': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'الاسم بالعربية'}),
+            'marque': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Marque'}),
+            'prix': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001', 'placeholder': '0.000'}),
+            'prix_avant': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001', 'placeholder': '0.000'}),
+            'pourcentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'placeholder': '0.0'}),
+            'remise': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001', 'placeholder': '0.000'}),
             'description': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Description'}),
+            'description_2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Description 2'}),
+            'description_3': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Description 3'}),
             'extrait_texte': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Texte extrait par OCR'}),
         }
         labels = {
-            'nom': 'Nom du produit',
-            'prix': 'Prix',
-            'prix_avant': 'Prix avant remise',
+            'nom': 'Nom du produit (affiché)',
+            'nom_fr': 'Nom (Français)',
+            'nom_ar': 'Nom (Arabe)',
+            'marque': 'Marque',
+            'prix': 'Prix (DT)',
+            'prix_avant': 'Prix avant (DT)',
             'pourcentage': 'Pourcentage (%)',
-            'remise': 'Remise (€)',
+            'remise': 'Remise (DT)',
             'description': 'Description',
+            'description_2': 'Description 2',
+            'description_3': 'Description 3',
             'extrait_texte': 'Texte extrait',
         }
     
@@ -48,13 +64,45 @@ class ProduitForm(forms.ModelForm):
         pourcentage = cleaned_data.get('pourcentage')
         remise = cleaned_data.get('remise')
         
-        # Si remise est directement fournie, on la garde
-        if remise and not prix and not prix_avant:
-            return cleaned_data
+        # 🔥 Logique de validation et calcul
+        # 1. Si remise est directement fournie, on la garde
+        if remise and remise > 0:
+            if prix is not None and prix > 0:
+                # Si on a prix et remise, on peut calculer prix_avant
+                cleaned_data['prix_avant'] = prix + remise
+                if pourcentage is None:
+                    cleaned_data['pourcentage'] = (remise / (prix + remise)) * 100
         
-        # Validation des données
+        # 2. Validation prix vs prix_avant
         if prix is not None and prix_avant is not None:
             if prix >= prix_avant:
-                raise forms.ValidationError("Le prix doit être inférieur au prix avant remise")
+                raise forms.ValidationError(
+                    "Le prix doit être inférieur au prix avant remise (prix < prix_avant)"
+                )
+            # Calcul automatique du pourcentage
+            if pourcentage is None:
+                cleaned_data['pourcentage'] = ((prix_avant - prix) / prix_avant) * 100
+            # Calcul automatique de la remise
+            if remise is None:
+                cleaned_data['remise'] = prix_avant - prix
+        
+        # 3. Si prix et pourcentage -> prix_avant
+        if prix is not None and pourcentage is not None and pourcentage > 0 and pourcentage <= 100:
+            if prix_avant is None:
+                cleaned_data['prix_avant'] = prix / (1 - pourcentage / 100)
+                cleaned_data['remise'] = cleaned_data['prix_avant'] - prix
+        
+        # 4. Si prix_avant et pourcentage -> prix
+        if prix_avant is not None and pourcentage is not None and pourcentage > 0 and pourcentage <= 100:
+            if prix is None:
+                cleaned_data['prix'] = prix_avant * (1 - pourcentage / 100)
+                cleaned_data['remise'] = prix_avant - cleaned_data['prix']
+        
+        # 5. Validation du pourcentage
+        if pourcentage is not None:
+            if pourcentage < 0 or pourcentage > 100:
+                raise forms.ValidationError(
+                    "Le pourcentage doit être entre 0 et 100%"
+                )
         
         return cleaned_data

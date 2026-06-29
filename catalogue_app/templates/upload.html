@@ -202,7 +202,6 @@
                                         </td>
                                         <td>
                                             <a href="{% url 'edit_product' produit.id %}" class="btn btn-sm btn-warning" title="Modifier">
-                                                <i class="fas fa-edit"></i>
                                             </a>
                                         </td>
                                     </tr>
@@ -455,7 +454,7 @@ $(document).ready(function () {
                 '<td>' + escHtml(p.description) + '</td>' +
                 '<td>' + escHtml(p.description_2) + '</td>' +
                 '<td>' + escHtml(p.description_3) + '</td>' +
-                '<td><a href="/catalogue/product/edit/' + p.id + '/" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a></td>'
+                '<td><a href="/product/edit/' + p.id + '/" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a></td>'
             );
 
             $('#productTableBody').append(row);

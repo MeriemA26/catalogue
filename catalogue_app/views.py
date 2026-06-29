@@ -482,19 +482,59 @@ def upload_stream(request):
 
 
 def edit_product(request, product_id):
-    """Éditer un produit individuel"""
+    """Éditer un produit individuel avec calcul automatique des prix (TND)"""
     produit = get_object_or_404(Produit, id=product_id)
     
     if request.method == 'POST':
         form = ProduitForm(request.POST, instance=produit)
         if form.is_valid():
             try:
+                # Sauvegarder le produit
                 produit = form.save(commit=False)
+                
+                # Récupérer les valeurs
+                prix = produit.prix
+                prix_avant = produit.prix_avant
+                pourcentage = produit.pourcentage
+                remise = produit.remise
+                
+                # 🔥 Logique de calcul des prix (TND)
+                # 1. Si prix et prix_avant -> remise et pourcentage
+                if prix is not None and prix_avant is not None and prix_avant > 0:
+                    if prix < prix_avant:
+                        produit.remise = prix_avant - prix
+                        produit.pourcentage = (produit.remise / prix_avant) * 100
+                    else:
+                        produit.remise = None
+                        produit.pourcentage = None
+                
+                # 2. Si prix et pourcentage -> prix_avant
+                elif prix is not None and pourcentage is not None and pourcentage > 0 and pourcentage <= 100:
+                    produit.prix_avant = prix / (1 - pourcentage / 100)
+                    produit.remise = produit.prix_avant - prix
+                
+                # 3. Si prix_avant et pourcentage -> prix
+                elif prix_avant is not None and pourcentage is not None and pourcentage > 0 and pourcentage <= 100:
+                    produit.prix = prix_avant * (1 - pourcentage / 100)
+                    produit.remise = prix_avant - produit.prix
+                
+                # 4. Si remise est lue directement -> prix_avant et pourcentage
+                elif prix is not None and remise is not None and remise > 0:
+                    produit.prix_avant = prix + remise
+                    produit.pourcentage = (remise / produit.prix_avant) * 100
+                
+                # 5. Si seul remise est donnée sans prix
+                elif remise is not None and remise > 0 and prix is None:
+                    produit.remise = remise
+                
+                # Sauvegarder les modifications
                 produit.save()
-                messages.success(request, 'Produit mis a jour avec succes !')
-                return redirect('edit_product', product_id=produit.id)
+                
+                messages.success(request, 'Produit mis à jour avec succès !')
+                return redirect('upload')  # Redirige vers upload pour voir le tableau mis à jour
+                
             except Exception as e:
-                messages.error(request, f"Erreur lors de la mise a jour: {str(e)}")
+                messages.error(request, f"Erreur lors de la mise à jour: {str(e)}")
         else:
             messages.error(request, "Le formulaire contient des erreurs.")
     else:
@@ -505,7 +545,6 @@ def edit_product(request, product_id):
         'produit': produit,
     }
     return render(request, 'edit_product.html', context)
-
 
 @csrf_exempt
 def update_product_field(request):
