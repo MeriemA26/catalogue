@@ -2,7 +2,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<h2>📋 Dernier catalogue sauvegardé</h2>
+<h2>Dernier catalogue sauvegardé</h2>
 
 {% if catalogue and has_products %}
     <div class="card mb-4">
@@ -20,11 +20,6 @@
                     <span class="badge bg-light text-dark">
                         <i class="fas fa-box"></i> {{ produits.count }} produits sauvegardés
                     </span>
-                    {% if catalogue.image_path %}
-                        <button class="btn btn-sm btn-light ms-2" onclick="window.open('{{ catalogue.image_path.url }}', '_blank')">
-                            <i class="fas fa-image"></i> Voir catalogue
-                        </button>
-                    {% endif %}
                 </div>
             </div>
         </div>

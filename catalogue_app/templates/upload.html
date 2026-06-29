@@ -5,11 +5,12 @@
 {% block content %}
 <h2>Upload de Catalogue</h2>
 
-<!-- Afficher l'image du catalogue seulement s'il y a des produits non sauvegardés -->
-{% if last_uploaded_image and produits_non_sauvegardes > 0 %}
+<!-- Afficher l'image du catalogue -->
+<!-- Afficher l'image du catalogue -->
+{% if last_uploaded_image %}
 <div class="row mt-3">
     <div class="col-md-12">
-        <div class="alert alert-success">
+        <div class="alert alert-{% if produits_non_sauvegardes > 0 %}success{% else %}info{% endif %}">
             <label class="form-label fw-bold">📷 Image du catalogue actuel :</label>
             <div class="border p-2 text-center" style="background-color: #f8f9fa;">
                 <img id="lastCatalogueImg" src="{{ last_uploaded_image }}" 
@@ -17,9 +18,38 @@
                      class="img-fluid" 
                      style="max-height: 400px; object-fit: contain;">
             </div>
+            {% if produits_non_sauvegardes == 0 %}
+                <p class="mt-2 text-muted">✅ Tous les produits ont été traités.</p>
+            {% else %}
+                <p class="mt-2 text-muted">{{ produits_non_sauvegardes }} produit(s) en attente de traitement.</p>
+            {% endif %}
         </div>
     </div>
 </div>
+{% elif produits_non_sauvegardes > 0 %}
+    <!-- 🔥 SECOURS : Récupérer l'image depuis le catalogue -->
+    {% for enseigne, produits in catalogues_recents.items %}
+        {% if forloop.first %}
+            {% for produit in produits %}
+                {% if forloop.first and produit.catalogue.image_path %}
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="alert alert-success">
+                            <label class="form-label fw-bold">📷 Image du catalogue actuel :</label>
+                            <div class="border p-2 text-center" style="background-color: #f8f9fa;">
+                                <img src="{{ produit.catalogue.image_path.url }}" 
+                                     alt="Catalogue actuel" 
+                                     class="img-fluid" 
+                                     style="max-height: 400px; object-fit: contain;">
+                            </div>
+                            <p class="mt-2 text-muted">{{ produits_non_sauvegardes }} produit(s) en attente de traitement.</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    {% endfor %}
 {% endif %}
 
 <form enctype="multipart/form-data" class="mb-4" id="uploadForm">
