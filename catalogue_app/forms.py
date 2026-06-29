@@ -23,10 +23,9 @@ class ProduitForm(forms.ModelForm):
     class Meta:
         model = Produit
         fields = [
-            'nom', 'nom_fr', 'nom_ar', 'marque',
+            'nom_fr', 'nom_ar', 'marque',
             'prix', 'prix_avant', 'pourcentage', 'remise',
             'description', 'description_2', 'description_3',
-            'extrait_texte'
         ]
         widgets = {
             'nom': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nom du produit (affiché)'}),
@@ -35,7 +34,12 @@ class ProduitForm(forms.ModelForm):
             'marque': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Marque'}),
             'prix': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001', 'placeholder': '0.000'}),
             'prix_avant': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001', 'placeholder': '0.000'}),
-            'pourcentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.1', 'placeholder': '0.0'}),
+            'pourcentage': forms.NumberInput(attrs={
+                'class': 'form-control', 
+                'step': '0.01',  # ✅ Permet des valeurs comme 11.0
+                'min': '0',
+                'max': '100'
+            }),
             'remise': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001', 'placeholder': '0.000'}),
             'description': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Description'}),
             'description_2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Description 2'}),
@@ -99,10 +103,12 @@ class ProduitForm(forms.ModelForm):
                 cleaned_data['remise'] = prix_avant - cleaned_data['prix']
         
         # 5. Validation du pourcentage
+        pourcentage = cleaned_data.get('pourcentage')
         if pourcentage is not None:
-            if pourcentage < 0 or pourcentage > 100:
-                raise forms.ValidationError(
-                    "Le pourcentage doit être entre 0 et 100%"
-                )
+            # Au lieu de bloquer, on arrondit ou on accepte
+            if pourcentage < 0:
+                cleaned_data['pourcentage'] = 0
+            elif pourcentage > 100:
+                cleaned_data['pourcentage'] = 100
         
         return cleaned_data
