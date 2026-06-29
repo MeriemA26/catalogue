@@ -105,9 +105,9 @@
                             {% for enseigne, produits in catalogues_recents.items %}
                                 {% for produit in produits %}
                                     {% if not produit.est_sauvegarde %}
-                                    <tr>
+                                    <tr id="prod-row-{{ produit.id }}">
                                         <td><input type="checkbox" name="selected_products" value="{{ produit.id }}"></td>
-                                        <td>{{ forloop.counter }}</td>
+                                        <td>{{ forloop.parentloop.counter0|add:forloop.counter }}</td>
                                         <td>
                                             {% if produit.image_produit %}
                                                 <img src="{{ produit.image_produit.url }}" alt="{{ produit.nom }}" 

@@ -529,11 +529,28 @@ def save_selected_products(request):
                 return redirect('upload')
             
             # Récupérer les produits depuis la base de données
+            print(f"Recherche des produits avec IDs: {product_ids}")
             produits = Produit.objects.filter(id__in=product_ids, est_sauvegarde=False)
+            print(f"Produits trouvés: {produits.count()}")
+            
+            # Afficher les détails des produits trouvés
+            for p in produits:
+                print(f"  Produit ID: {p.id} - Nom: {p.nom} - est_sauvegarde: {p.est_sauvegarde}")
+            
             count = produits.count()
             
+            # Vérifier si les produits existent mais sont déjà sauvegardés
+            produits_existants = Produit.objects.filter(id__in=product_ids)
+            print(f"Produits existants (même sauvegardés): {produits_existants.count()}")
+            for p in produits_existants:
+                print(f"  Produit ID: {p.id} - est_sauvegarde: {p.est_sauvegarde}")
+            
             if count == 0:
-                messages.warning(request, 'Produits non trouvés ou déjà sauvegardés.')
+                # Vérifier si les produits existent dans la base
+                if produits_existants.count() > 0:
+                    messages.warning(request, 'Les produits sélectionnés sont déjà sauvegardés.')
+                else:
+                    messages.warning(request, 'Produits non trouvés dans la base de données.')
                 return redirect('upload')
             
             # Marquer comme sauvegardés
@@ -543,13 +560,14 @@ def save_selected_products(request):
             restants = Produit.objects.filter(est_sauvegarde=False).count()
             
             if restants == 0:
-                if 'last_uploaded_image' in request.session:
-                    del request.session['last_uploaded_image']
-                messages.info(request, 'Tous les produits sont maintenant sauvegardés !')
+                messages.success(request, f'Tous les produits sont maintenant sauvegardés !')
             else:
                 messages.success(request, f'{count} produits sauvegardés ! Il reste {restants} produit(s) en attente.')
             
         except Exception as e:
+            print(f"Erreur: {e}")
+            import traceback
+            traceback.print_exc()
             messages.error(request, f"Erreur lors de la sauvegarde: {str(e)}")
         
         return redirect('upload')
@@ -614,9 +632,10 @@ def delete_selected_products(request):
             restants = Produit.objects.filter(est_sauvegarde=False).count()
             
             if restants == 0:
-                if 'last_uploaded_image' in request.session:
-                    del request.session['last_uploaded_image']
-                messages.info(request, 'Tous les produits ont été supprimés.')
+                # NE PAS SUPPRIMER last_uploaded_image ici non plus
+                # if 'last_uploaded_image' in request.session:
+                #     del request.session['last_uploaded_image']
+                messages.success(request, 'Tous les produits ont été supprimés.')
             else:
                 messages.success(request, f'{count} produits supprimés ! Il reste {restants} produit(s).')
             
