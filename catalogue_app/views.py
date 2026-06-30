@@ -36,7 +36,7 @@ def index(request):
 
 
 def upload(request):
-    """Page d'upload avec traitement OCR"""
+    """Page d'upload avec traitement OCR pour une ou plusieurs images"""
     # Initialiser last_uploaded_image
     last_uploaded_image = request.session.get('last_uploaded_image', None)
     
@@ -65,7 +65,11 @@ def upload(request):
                 enseigne = form.cleaned_data['enseigne']
                 date_debut = form.cleaned_data['date_debut']
                 date_fin = form.cleaned_data['date_fin']
-                image = form.cleaned_data['image']
+                images = request.FILES.getlist('images')  # 🔥 Récupérer plusieurs images
+                
+                if not images:
+                    messages.error(request, "Veuillez sélectionner au moins une image.")
+                    return redirect('upload')
                 
                 # Créer ou récupérer le catalogue
                 catalogue, created = Catalogue.objects.get_or_create(
@@ -75,151 +79,148 @@ def upload(request):
                     defaults={'date_upload': timezone.now()}
                 )
                 
-                # Sauvegarder l'image du catalogue
-                image_name = f'{enseigne.nom}_{date_debut}_{date_fin}_{image.name}'
-                image_path = default_storage.save(
-                    f'catalogues/{image_name}',
-                    ContentFile(image.read())
-                )
-                catalogue.image_path = image_path
-                catalogue.save()
+                total_produits = 0
+                images_paths = []
                 
-                # Traitement OCR avec les modèles YOLO
-                ocr = OCRProcessor()
-                full_path = os.path.join(settings.MEDIA_ROOT, image_path)
-                
-                # Vérifier que l'image existe
-                if not os.path.exists(full_path):
-                    messages.error(request, "Erreur: L'image n'a pas ete sauvegardee correctement.")
-                    return redirect('upload')
-                
-                # Traiter l'image complète avec YOLO
-                produits_data = []
-                try:
-                    produits_data = ocr.traiter_image_complete(full_path)
+                # 🔥 Traiter chaque image
+                for idx, image in enumerate(images):
+                    # Sauvegarder l'image du catalogue
+                    image_name = f'{enseigne.nom}_{date_debut}_{date_fin}_{idx}_{image.name}'
+                    image_path = default_storage.save(
+                        f'catalogues/{image_name}',
+                        ContentFile(image.read())
+                    )
+                    images_paths.append(image_path)
                     
-                    # Afficher les données extraites pour debug (uniquement en console)
-                    print("\n" + "=" * 80)
-                    print("DONNEES EXTRAITES PAR L'OCR:")
-                    print("=" * 80)
-                    for i, data in enumerate(produits_data):
-                        print(f"\nProduit {i+1}:")
-                        print(f"  Nom (FR): {data.get('nom', 'NON TROUVE')}")
-                        print(f"  Nom (AR): {data.get('nom_ar', 'NON TROUVE')}")
-                        print(f"  Marque: {data.get('marque', 'NON TROUVE')}")
-                        print(f"  Prix: {data.get('prix', 'NON TROUVE')}")
-                        print(f"  Prix Avant: {data.get('prix_avant', 'NON TROUVE')}")
-                        print(f"  %: {data.get('pourcentage', 'NON TROUVE')}")
-                        print(f"  Remise: {data.get('remise', 'NON TROUVE')}")
-                        print(f"  Description: {data.get('description', 'NON TROUVE')[:50]}...")
-                        print(f"  Description 2: {data.get('description_2', 'NON TROUVE')[:50]}...")
-                        print(f"  Description 3: {data.get('description_3', 'NON TROUVE')[:50]}...")
-                    print("=" * 80 + "\n")
+                    # Traitement OCR
+                    ocr = OCRProcessor()
+                    full_path = os.path.join(settings.MEDIA_ROOT, image_path)
                     
-                except Exception as e:
-                    print(f"Erreur YOLO: {e}")
-                    messages.warning(request, f"Erreur avec les modeles YOLO: {str(e)}")
-                
-                # Si aucun produit détecté, utiliser le fallback EasyOCR
-                if not produits_data:
-                    print("Utilisation du mode fallback (EasyOCR)")
-                    messages.warning(request, "Aucun produit detecte avec les modeles YOLO, utilisation du mode fallback")
+                    if not os.path.exists(full_path):
+                        continue
                     
+                    # Traiter l'image
+                    produits_data = []
                     try:
-                        texte = ocr.extraire_texte_fallback(full_path)
-                        if texte:
-                            produits_data = ocr.detecter_prix_remise(texte)
-                            print(f"Produits detectes avec fallback: {len(produits_data)}")
-                        else:
-                            messages.warning(request, "Aucun texte detecte dans l'image.")
+                        produits_data = ocr.traiter_image_complete(full_path)
+                        print(f"📊 Image {idx+1}: {len(produits_data)} produits détectés")
+                        
+                        # Afficher les données extraites pour debug
+                        print("\n" + "=" * 80)
+                        print(f"DONNEES EXTRAITES PAR L'OCR - IMAGE {idx+1}:")
+                        print("=" * 80)
+                        for i, data in enumerate(produits_data):
+                            print(f"\nProduit {i+1}:")
+                            print(f"  Nom (FR): {data.get('nom', 'NON TROUVE')}")
+                            print(f"  Nom (AR): {data.get('nom_ar', 'NON TROUVE')}")
+                            print(f"  Marque: {data.get('marque', 'NON TROUVE')}")
+                            print(f"  Prix: {data.get('prix', 'NON TROUVE')}")
+                            print(f"  Prix Avant: {data.get('prix_avant', 'NON TROUVE')}")
+                            print(f"  %: {data.get('pourcentage', 'NON TROUVE')}")
+                            print(f"  Remise: {data.get('remise', 'NON TROUVE')}")
+                            print(f"  Description: {data.get('description', 'NON TROUVE')[:50]}...")
+                            print(f"  Description 2: {data.get('description_2', 'NON TROUVE')[:50]}...")
+                            print(f"  Description 3: {data.get('description_3', 'NON TROUVE')[:50]}...")
+                        print("=" * 80 + "\n")
+                        
                     except Exception as e:
-                        print(f"Erreur fallback: {e}")
-                        messages.error(request, f"Erreur lors de l'extraction du texte: {str(e)}")
-                
-                # Créer les produits dans la base de données
-                produits_crees = []
-                if produits_data:
-                    for idx, data in enumerate(produits_data):
+                        print(f"Erreur YOLO sur image {idx+1}: {e}")
+                    
+                    # Fallback si nécessaire
+                    if not produits_data:
+                        print(f"Utilisation du mode fallback (EasyOCR) pour l'image {idx+1}")
                         try:
-                            # Sauvegarder l'image du produit si disponible
-                            image_produit = None
-                            if 'product_image_b64' in data and data['product_image_b64']:
-                                try:
-                                    image_data = base64.b64decode(data['product_image_b64'])
-                                    timestamp = int(timezone.now().timestamp())
-                                    filename = f'produit_{catalogue.id}_{idx}_{timestamp}.jpg'
-                                    image_produit = ContentFile(image_data, filename)
-                                    print(f"Image produit {idx} decodee avec succes")
-                                except Exception as e:
-                                    print(f"Erreur decodage image produit {idx}: {e}")
-                            
-                            # Récupérer les noms exacts (peuvent être vides)
-                            nom_fr = data.get('nom_fr', '').strip()
-                            nom_ar = data.get('nom_ar', '').strip()
-                            
-                            # nom = nom_fr s'il existe, sinon nom_ar s'il existe, sinon générique
-                            if nom_fr:
-                                nom_affiche = nom_fr
-                            elif nom_ar:
-                                nom_affiche = nom_ar
-                            else:
-                                nom_affiche = f"Produit {idx + 1}"
-                            
-                            # Nettoyer les descriptions
-                            description = data.get('description', '') or ''
-                            description_2 = data.get('description_2', '') or ''
-                            description_3 = data.get('description_3', '') or ''
-                            
-                            if not description and (description_2 or description_3):
-                                description = description_2
-                                description_2 = description_3
-                                description_3 = ''
-                            
-                            remise_val = data.get('remise')
-                            if isinstance(remise_val, str) and '%' in remise_val:
-                                remise_val = None
-                            
-                            produit = Produit(
-                                catalogue=catalogue,
-                                nom=nom_affiche,
-                                nom_fr=nom_fr if nom_fr else None,
-                                nom_ar=nom_ar if nom_ar else None,
-                                marque=data.get('marque', '') if data.get('marque') else None,
-                                prix=data.get('prix'),
-                                prix_avant=data.get('prix_avant'),
-                                pourcentage=data.get('pourcentage'),
-                                remise=remise_val if remise_val else None,
-                                description=description if description else None,
-                                description_2=description_2 if description_2 else None,
-                                description_3=description_3 if description_3 else None,
-                                extrait_texte=data.get('extrait_texte', '') if data.get('extrait_texte') else None,
-                                image_produit=image_produit,
-                            )
-                            produit.save()
-                            produits_crees.append(produit)
-                            print(f"Produit cree: ID {produit.id}")
-                            
+                            texte = ocr.extraire_texte_fallback(full_path)
+                            if texte:
+                                produits_data = ocr.detecter_prix_remise(texte)
+                                print(f"📊 Fallback image {idx+1}: {len(produits_data)} produits")
                         except Exception as e:
-                            print(f"Erreur creation produit {idx}: {e}")
-                            import traceback
-                            traceback.print_exc()
-                            continue
+                            print(f"Erreur fallback: {e}")
+                    
+                    # Créer les produits dans la base de données
+                    if produits_data:
+                        for pidx, data in enumerate(produits_data):
+                            try:
+                                # Sauvegarder l'image du produit si disponible
+                                image_produit = None
+                                if 'product_image_b64' in data and data['product_image_b64']:
+                                    try:
+                                        image_data = base64.b64decode(data['product_image_b64'])
+                                        timestamp = int(timezone.now().timestamp())
+                                        filename = f'produit_{catalogue.id}_{idx}_{pidx}_{timestamp}.jpg'
+                                        image_produit = ContentFile(image_data, filename)
+                                        print(f"Image produit {pidx} decodee avec succes")
+                                    except Exception as e:
+                                        print(f"Erreur decodage image produit {pidx}: {e}")
+                                
+                                # Récupérer les noms exacts
+                                nom_fr = data.get('nom_fr', '').strip()
+                                nom_ar = data.get('nom_ar', '').strip()
+                                
+                                if nom_fr:
+                                    nom_affiche = nom_fr
+                                elif nom_ar:
+                                    nom_affiche = nom_ar
+                                else:
+                                    nom_affiche = f"Produit {idx}_{pidx + 1}"
+                                
+                                # Nettoyer les descriptions
+                                description = data.get('description', '') or ''
+                                description_2 = data.get('description_2', '') or ''
+                                description_3 = data.get('description_3', '') or ''
+                                
+                                if not description and (description_2 or description_3):
+                                    description = description_2
+                                    description_2 = description_3
+                                    description_3 = ''
+                                
+                                remise_val = data.get('remise')
+                                if isinstance(remise_val, str) and '%' in remise_val:
+                                    remise_val = None
+                                
+                                produit = Produit(
+                                    catalogue=catalogue,
+                                    nom=nom_affiche,
+                                    nom_fr=nom_fr if nom_fr else None,
+                                    nom_ar=nom_ar if nom_ar else None,
+                                    marque=data.get('marque', '') if data.get('marque') else None,
+                                    prix=data.get('prix'),
+                                    prix_avant=data.get('prix_avant'),
+                                    pourcentage=data.get('pourcentage'),
+                                    remise=remise_val if remise_val else None,
+                                    description=description if description else None,
+                                    description_2=description_2 if description_2 else None,
+                                    description_3=description_3 if description_3 else None,
+                                    extrait_texte=data.get('extrait_texte', '') if data.get('extrait_texte') else None,
+                                    image_produit=image_produit,
+                                )
+                                produit.save()
+                                total_produits += 1
+                                print(f"Produit cree: ID {produit.id}")
+                                
+                            except Exception as e:
+                                print(f"Erreur creation produit {idx}_{pidx}: {e}")
+                                import traceback
+                                traceback.print_exc()
+                                continue
                 
-                if produits_crees:
-                    messages.success(request, f'Upload reussi ! {len(produits_crees)} produits detectes et sauvegardes.')
+                # Sauvegarder la première image dans la session
+                if images_paths:
+                    first_image_path = images_paths[0]
+                    image_url = os.path.join(settings.MEDIA_URL, first_image_path)
+                    request.session['last_uploaded_image'] = image_url
+                    last_uploaded_image = image_url
+                    
+                    # Sauvegarder aussi le chemin de la première image dans le catalogue
+                    # pour l'affichage
+                    if not catalogue.image_path:
+                        catalogue.image_path = first_image_path
+                        catalogue.save()
+                
+                if total_produits > 0:
+                    messages.success(request, f'Upload réussi ! {total_produits} produits détectés sur {len(images)} page(s).')
                 else:
-                    messages.warning(request, 'Aucun produit detecte dans l\'image. Veuillez verifier la qualite de l\'image.')
-                
-                # 🔥 Sauvegarder l'image dans la session APRÈS la création des produits
-                image_url = os.path.join(settings.MEDIA_URL, image_path)
-                request.session['last_uploaded_image'] = image_url
-                last_uploaded_image = image_url
-                
-                print("=" * 80)
-                print("🔍 UPLOAD VIEW - SAUVEGARDE SESSION")
-                print(f"📌 image_url: {image_url}")
-                print(f"📌 Session après sauvegarde: {dict(request.session)}")
-                print("=" * 80)
+                    messages.warning(request, f'Aucun produit détecté dans les {len(images)} images.')
                 
             except Exception as e:
                 print(f"Erreur generale: {e}")
@@ -253,7 +254,7 @@ def upload(request):
 
     total_produits = Produit.objects.count()
     produits_sauvegardes = Produit.objects.filter(est_sauvegarde=True).count()
-    produits_non_sauvegardes = Produit.objects.filter(est_sauvegarde=False).count()
+    produits_non_sauvegardes_total = Produit.objects.filter(est_sauvegarde=False).count()
     
     context = {
         'form': form,
@@ -262,27 +263,49 @@ def upload(request):
         'total_catalogues': Catalogue.objects.count(),
         'total_produits': total_produits,
         'produits_sauvegardes': produits_sauvegardes,
-        'produits_non_sauvegardes': produits_non_sauvegardes,
+        'produits_non_sauvegardes': produits_non_sauvegardes_total,
         'last_uploaded_image': last_uploaded_image,
     }
     return render(request, 'upload.html', context)
 
 def upload_stream(request):
     """
-    Vue SSE : reçoit l'image uploadée, lance le pipeline produit par produit,
+    Vue SSE : reçoit les images uploadées, lance le pipeline produit par produit,
     et envoie chaque produit au client dès qu'il est prêt via Server-Sent Events.
     """
     if request.method != 'POST':
         return JsonResponse({'error': 'POST requis'}, status=405)
 
-    form = UploadForm(request.POST, request.FILES)
-    if not form.is_valid():
-        return JsonResponse({'error': str(form.errors)}, status=400)
+    print("=" * 80)
+    print("🔍 UPLOAD STREAM - DEBUG")
+    print(f"📌 FILES: {request.FILES}")
+    print(f"📌 POST: {request.POST}")
+    print("=" * 80)
 
-    enseigne    = form.cleaned_data['enseigne']
-    date_debut  = form.cleaned_data['date_debut']
-    date_fin    = form.cleaned_data['date_fin']
-    image       = form.cleaned_data['image']
+    # 🔥 Récupérer directement les fichiers
+    images = request.FILES.getlist('images')
+    
+    if not images:
+        return JsonResponse({'error': 'Aucune image sélectionnée'}, status=400)
+
+    # Récupérer les autres données du POST
+    enseigne_id = request.POST.get('enseigne')
+    date_debut_str = request.POST.get('date_debut')
+    date_fin_str = request.POST.get('date_fin')
+
+    if not enseigne_id or not date_debut_str or not date_fin_str:
+        return JsonResponse({'error': 'Données manquantes'}, status=400)
+
+    # Récupérer l'enseigne
+    try:
+        enseigne = Enseigne.objects.get(id=enseigne_id)
+    except Enseigne.DoesNotExist:
+        return JsonResponse({'error': 'Enseigne non trouvée'}, status=400)
+
+    # Convertir les dates
+    from datetime import datetime
+    date_debut = datetime.strptime(date_debut_str, '%Y-%m-%d').date()
+    date_fin = datetime.strptime(date_fin_str, '%Y-%m-%d').date()
 
     # Créer ou récupérer le catalogue
     catalogue, _ = Catalogue.objects.get_or_create(
@@ -292,22 +315,11 @@ def upload_stream(request):
         defaults={'date_upload': timezone.now()}
     )
 
-    # Sauvegarder l'image catalogue
-    image_name = f'{enseigne.nom}_{date_debut}_{date_fin}_{image.name}'
-    image_path = default_storage.save(
-        f'catalogues/{image_name}',
-        ContentFile(image.read())
-    )
-    catalogue.image_path = image_path
-    catalogue.save()
-
-    full_path = os.path.join(settings.MEDIA_ROOT, image_path)
-    media_image_url = os.path.join(settings.MEDIA_URL, image_path)
+    total_produits = 0
+    images_paths = []
 
     def event_stream():
-        # Sauvegarder l'URL de l'image en session via un signal JSON spécial
-        yield f"data: {json.dumps({'type': 'catalogue', 'image_url': media_image_url, 'catalogue_id': catalogue.id})}\n\n"
-
+        nonlocal total_produits, images_paths
         ocr = OCRProcessor()
 
         try:
@@ -324,151 +336,177 @@ def upload_stream(request):
             field_model   = get_field_model()
             reader_latin, reader_ar = get_ocr_readers()
 
-            image_cv = cv2.imread(full_path)
-            if image_cv is None:
-                yield f"data: {json.dumps({'type': 'error', 'message': 'Impossible de lire l image'})}\n\n"
-                return
+            # 🔥 Traiter CHAQUE image
+            for img_idx, image in enumerate(images):
+                # Sauvegarder l'image catalogue
+                image_name = f'{enseigne.nom}_{date_debut}_{date_fin}_{img_idx}_{image.name}'
+                image_path = default_storage.save(
+                    f'catalogues/{image_name}',
+                    ContentFile(image.read())
+                )
+                images_paths.append(image_path)
+                
+                # Si c'est la première image, la sauvegarder dans le catalogue
+                if img_idx == 0:
+                    catalogue.image_path = image_path
+                    catalogue.save()
+                    media_image_url = os.path.join(settings.MEDIA_URL, image_path)
+                    yield f"data: {json.dumps({'type': 'catalogue', 'image_url': media_image_url, 'catalogue_id': catalogue.id, 'page': img_idx + 1, 'total_pages': len(images)})}\n\n"
 
-            product_results = product_model(full_path, conf=0.5, verbose=False, device=device)[0]
-            total = len(product_results.boxes)
-            yield f"data: {json.dumps({'type': 'total', 'count': total})}\n\n"
+                full_path = os.path.join(settings.MEDIA_ROOT, image_path)
 
-            if total == 0:
-                yield f"data: {json.dumps({'type': 'done', 'count': 0})}\n\n"
-                return
-
-            for idx, box in enumerate(product_results.boxes):
-                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-                crop = image_cv[y1:y2, x1:x2]
-                if crop.size == 0:
+                image_cv = cv2.imread(full_path)
+                if image_cv is None:
+                    yield f"data: {json.dumps({'type': 'error', 'message': f'Impossible de lire l image {img_idx + 1}'})}\n\n"
                     continue
 
-                data = {
-                    'nom_fr': '', 'nom_ar': '', 'marque': '',
-                    'prix': None, 'prix_avant': None, 'pourcentage': None,
-                    'remise': '', 'description': '', 'description_2': '', 'description_3': '',
-                    'product_image_b64': image_to_base64(crop),
-                }
+                product_results = product_model(full_path, conf=0.5, verbose=False, device=device)[0]
+                total = len(product_results.boxes)
+                total_produits += total
 
-                field_results = field_model.predict(crop, conf=0.5, device=device, verbose=False)[0]
-                field_names   = field_results.names
-                extracted_pct = extracted_prix = extracted_prix_avant = None
+                # Envoyer le nombre de produits pour cette image
+                yield f"data: {json.dumps({'type': 'page_total', 'page': img_idx + 1, 'count': total, 'total_pages': len(images)})}\n\n"
 
-                for fbox, fcls in zip(field_results.boxes.xyxy.cpu().numpy(), field_results.boxes.cls.cpu().numpy()):
-                    fx1, fy1, fx2, fy2 = map(int, fbox)
-                    class_name = field_names[int(fcls)]
-                    roi = crop[fy1:fy2, fx1:fx2]
-                    if roi.size == 0:
-                        continue
-                    target = FIELD_CLASS_MAP.get(class_name)
-                    if target is None:
+                if total == 0:
+                    yield f"data: {json.dumps({'type': 'page_done', 'page': img_idx + 1, 'count': 0})}\n\n"
+                    continue
+
+                for idx, box in enumerate(product_results.boxes):
+                    x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                    crop = image_cv[y1:y2, x1:x2]
+                    if crop.size == 0:
                         continue
 
-                    if class_name == 'product_AR':
-                        data['nom_ar'] = extract_text(roi, reader_ar)
-                    elif class_name == 'product_name':
-                        data['nom_fr'] = extract_text(roi, reader_latin)
-                    elif class_name == 'brand':
-                        v = extract_text(roi, reader_latin)
-                        data['marque'] = v or extract_text(roi, reader_ar)
-                    elif class_name == 'price':
-                        v = extract_price(roi)
-                        if v:
-                            data['prix'] = float(v)
-                            extracted_prix = float(v)
-                    elif class_name == 'price_before':
-                        v = extract_price(roi)
-                        if v:
-                            data['prix_avant'] = float(v)
-                            extracted_prix_avant = float(v)
-                    elif class_name == 'pct':
-                        v = extract_percentage(roi)
-                        if v:
-                            data['pourcentage'] = float(v)
-                            extracted_pct = float(v)
-                    elif class_name in ('description', 'description2', 'description3'):
-                        v = extract_text(roi, reader_latin) or extract_text(roi, reader_ar)
-                        if v:
-                            v = re.sub(r'[^\w\s\u0600-\u06FF\.\,\-\(\)\:]+', ' ', v)
-                            v = re.sub(r'\s+', ' ', v).strip()
-                        key = {'description': 'description', 'description2': 'description_2', 'description3': 'description_3'}[class_name]
-                        data[key] = v or ''
+                    data = {
+                        'nom_fr': '', 'nom_ar': '', 'marque': '',
+                        'prix': None, 'prix_avant': None, 'pourcentage': None,
+                        'remise': '', 'description': '', 'description_2': '', 'description_3': '',
+                        'product_image_b64': image_to_base64(crop),
+                    }
 
-                # Calcul prix
-                if extracted_pct and 1 <= extracted_pct <= 100:
-                    data['pourcentage'] = extracted_pct
-                    if extracted_prix:
-                        data['prix_avant'] = round(extracted_prix / (1 - extracted_pct / 100), 3)
-                    elif extracted_prix_avant:
-                        data['prix'] = round(extracted_prix_avant * (1 - extracted_pct / 100), 3)
-                elif extracted_prix and extracted_prix_avant and extracted_prix_avant > 0:
-                    if extracted_prix < extracted_prix_avant:
-                        pct = round((1 - extracted_prix / extracted_prix_avant) * 100, 2)
-                        if 1 <= pct <= 100:
-                            data['pourcentage'] = pct
+                    field_results = field_model.predict(crop, conf=0.5, device=device, verbose=False)[0]
+                    field_names   = field_results.names
+                    extracted_pct = extracted_prix = extracted_prix_avant = None
 
-                # Créer le produit en DB
-                nom_fr = data['nom_fr'].strip()
-                nom_ar = data['nom_ar'].strip()
-                nom_affiche = nom_fr or nom_ar or f"Produit {idx + 1}"
+                    for fbox, fcls in zip(field_results.boxes.xyxy.cpu().numpy(), field_results.boxes.cls.cpu().numpy()):
+                        fx1, fy1, fx2, fy2 = map(int, fbox)
+                        class_name = field_names[int(fcls)]
+                        roi = crop[fy1:fy2, fx1:fx2]
+                        if roi.size == 0:
+                            continue
+                        target = FIELD_CLASS_MAP.get(class_name)
+                        if target is None:
+                            continue
 
-                description   = data.get('description', '') or ''
-                description_2 = data.get('description_2', '') or ''
-                description_3 = data.get('description_3', '') or ''
-                if not description and (description_2 or description_3):
-                    description, description_2, description_3 = description_2, description_3, ''
+                        if class_name == 'product_AR':
+                            data['nom_ar'] = extract_text(roi, reader_ar)
+                        elif class_name == 'product_name':
+                            data['nom_fr'] = extract_text(roi, reader_latin)
+                        elif class_name == 'brand':
+                            v = extract_text(roi, reader_latin)
+                            data['marque'] = v or extract_text(roi, reader_ar)
+                        elif class_name == 'price':
+                            v = extract_price(roi)
+                            if v:
+                                data['prix'] = float(v)
+                                extracted_prix = float(v)
+                        elif class_name == 'price_before':
+                            v = extract_price(roi)
+                            if v:
+                                data['prix_avant'] = float(v)
+                                extracted_prix_avant = float(v)
+                        elif class_name == 'pct':
+                            v = extract_percentage(roi)
+                            if v:
+                                data['pourcentage'] = float(v)
+                                extracted_pct = float(v)
+                        elif class_name in ('description', 'description2', 'description3'):
+                            v = extract_text(roi, reader_latin) or extract_text(roi, reader_ar)
+                            if v:
+                                v = re.sub(r'[^\w\s\u0600-\u06FF\.\,\-\(\)\:]+', ' ', v)
+                                v = re.sub(r'\s+', ' ', v).strip()
+                            key = {'description': 'description', 'description2': 'description_2', 'description3': 'description_3'}[class_name]
+                            data[key] = v or ''
 
-                remise_val = data.get('remise')
-                if isinstance(remise_val, str) and '%' in remise_val:
-                    remise_val = None
+                    # Calcul prix
+                    if extracted_pct and 1 <= extracted_pct <= 100:
+                        data['pourcentage'] = extracted_pct
+                        if extracted_prix:
+                            data['prix_avant'] = round(extracted_prix / (1 - extracted_pct / 100), 3)
+                        elif extracted_prix_avant:
+                            data['prix'] = round(extracted_prix_avant * (1 - extracted_pct / 100), 3)
+                    elif extracted_prix and extracted_prix_avant and extracted_prix_avant > 0:
+                        if extracted_prix < extracted_prix_avant:
+                            pct = round((1 - extracted_prix / extracted_prix_avant) * 100, 2)
+                            if 1 <= pct <= 100:
+                                data['pourcentage'] = pct
 
-                image_produit = None
-                if data.get('product_image_b64'):
-                    try:
-                        img_data = b64.b64decode(data['product_image_b64'])
-                        ts = int(timezone.now().timestamp())
-                        image_produit = ContentFile(img_data, f'produit_{catalogue.id}_{idx}_{ts}.jpg')
-                    except Exception:
-                        pass
+                    # Créer le produit en DB
+                    nom_fr = data['nom_fr'].strip()
+                    nom_ar = data['nom_ar'].strip()
+                    nom_affiche = nom_fr or nom_ar or f"Produit {idx + 1}"
 
-                produit = Produit(
-                    catalogue=catalogue,
-                    nom=nom_affiche,
-                    nom_fr=nom_fr or None,
-                    nom_ar=nom_ar or None,
-                    marque=data.get('marque') or None,
-                    prix=data.get('prix'),
-                    prix_avant=data.get('prix_avant'),
-                    pourcentage=data.get('pourcentage'),
-                    remise=remise_val or None,
-                    description=description or None,
-                    description_2=description_2 or None,
-                    description_3=description_3 or None,
-                    extrait_texte=f"Marque: {data.get('marque','')} - {description}" or None,
-                    image_produit=image_produit,
-                )
-                produit.save()
+                    description   = data.get('description', '') or ''
+                    description_2 = data.get('description_2', '') or ''
+                    description_3 = data.get('description_3', '') or ''
+                    if not description and (description_2 or description_3):
+                        description, description_2, description_3 = description_2, description_3, ''
 
-                # Préparer la payload SSE
-                payload = {
-                    'type': 'product',
-                    'index': idx + 1,
-                    'id': produit.id,
-                    'nom': nom_affiche,
-                    'nom_fr': nom_fr,
-                    'nom_ar': nom_ar,
-                    'marque': data.get('marque', ''),
-                    'prix': str(produit.prix) if produit.prix is not None else '',
-                    'prix_avant': str(produit.prix_avant) if produit.prix_avant is not None else '',
-                    'pourcentage': str(int(produit.pourcentage)) if produit.pourcentage is not None else '',
-                    'description': description[:80] if description else '',
-                    'description_2': description_2[:80] if description_2 else '',
-                    'description_3': description_3[:80] if description_3 else '',
-                    'image_url': produit.image_produit.url if produit.image_produit else '',
-                }
-                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+                    remise_val = data.get('remise')
+                    if isinstance(remise_val, str) and '%' in remise_val:
+                        remise_val = None
 
-            yield f"data: {json.dumps({'type': 'done', 'count': total})}\n\n"
+                    image_produit = None
+                    if data.get('product_image_b64'):
+                        try:
+                            img_data = b64.b64decode(data['product_image_b64'])
+                            ts = int(timezone.now().timestamp())
+                            image_produit = ContentFile(img_data, f'produit_{catalogue.id}_{img_idx}_{idx}_{ts}.jpg')
+                        except Exception:
+                            pass
+
+                    produit = Produit(
+                        catalogue=catalogue,
+                        nom=nom_affiche,
+                        nom_fr=nom_fr or None,
+                        nom_ar=nom_ar or None,
+                        marque=data.get('marque') or None,
+                        prix=data.get('prix'),
+                        prix_avant=data.get('prix_avant'),
+                        pourcentage=data.get('pourcentage'),
+                        remise=remise_val or None,
+                        description=description or None,
+                        description_2=description_2 or None,
+                        description_3=description_3 or None,
+                        extrait_texte=f"Marque: {data.get('marque','')} - {description}" or None,
+                        image_produit=image_produit,
+                    )
+                    produit.save()
+
+                    # Préparer la payload SSE
+                    payload = {
+                        'type': 'product',
+                        'index': idx + 1,
+                        'page': img_idx + 1,
+                        'id': produit.id,
+                        'nom': nom_affiche,
+                        'nom_fr': nom_fr,
+                        'nom_ar': nom_ar,
+                        'marque': data.get('marque', ''),
+                        'prix': str(produit.prix) if produit.prix is not None else '',
+                        'prix_avant': str(produit.prix_avant) if produit.prix_avant is not None else '',
+                        'pourcentage': str(int(produit.pourcentage)) if produit.pourcentage is not None else '',
+                        'description': description[:80] if description else '',
+                        'description_2': description_2[:80] if description_2 else '',
+                        'description_3': description_3[:80] if description_3 else '',
+                        'image_url': produit.image_produit.url if produit.image_produit else '',
+                    }
+                    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+                yield f"data: {json.dumps({'type': 'page_done', 'page': img_idx + 1, 'count': total})}\n\n"
+
+            # Fin du traitement - toutes les images traitées
+            yield f"data: {json.dumps({'type': 'done', 'count': total_produits, 'pages': len(images)})}\n\n"
 
         except Exception as e:
             import traceback
@@ -479,7 +517,6 @@ def upload_stream(request):
     response['Cache-Control'] = 'no-cache'
     response['X-Accel-Buffering'] = 'no'
     return response
-
 
 def edit_product(request, product_id):
     """Éditer un produit individuel avec calcul automatique des prix (TND)"""

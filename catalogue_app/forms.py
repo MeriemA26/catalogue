@@ -1,6 +1,17 @@
 # catalogue_app/forms.py
 from django import forms
+from django.forms.widgets import ClearableFileInput
 from .models import Produit, Catalogue, Enseigne
+
+# 🔥 Widget personnalisé pour support multiple files
+# catalogue_app/forms.py
+from django import forms
+from django.forms.widgets import ClearableFileInput
+from .models import Produit, Catalogue, Enseigne
+
+# 🔥 Widget personnalisé pour support multiple files
+class MultipleFileInput(ClearableFileInput):
+    allow_multiple_selected = True
 
 class UploadForm(forms.Form):
     enseigne = forms.ModelChoiceField(
@@ -14,18 +25,25 @@ class UploadForm(forms.Form):
     date_fin = forms.DateField(
         widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
     )
-    image = forms.ImageField(
-        widget=forms.FileInput(attrs={'class': 'form-control'})
+    # 🔥 Champ pour plusieurs images
+    images = forms.FileField(
+        widget=MultipleFileInput(attrs={
+            'class': 'form-control',
+            'multiple': True,
+            'accept': 'image/*'
+        }),
+        required=True,
+        label="Images du catalogue (sélectionnez plusieurs)"
     )
-
-
+    
 class ProduitForm(forms.ModelForm):
     class Meta:
         model = Produit
         fields = [
-            'nom_fr', 'nom_ar', 'marque',
+            'nom', 'nom_fr', 'nom_ar', 'marque',
             'prix', 'prix_avant', 'pourcentage', 'remise',
             'description', 'description_2', 'description_3',
+            'extrait_texte'
         ]
         widgets = {
             'nom': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nom du produit (affiché)'}),
@@ -34,12 +52,7 @@ class ProduitForm(forms.ModelForm):
             'marque': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Marque'}),
             'prix': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001', 'placeholder': '0.000'}),
             'prix_avant': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001', 'placeholder': '0.000'}),
-            'pourcentage': forms.NumberInput(attrs={
-                'class': 'form-control', 
-                'step': '0.01',  # ✅ Permet des valeurs comme 11.0
-                'min': '0',
-                'max': '100'
-            }),
+            'pourcentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.0'}),
             'remise': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001', 'placeholder': '0.000'}),
             'description': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Description'}),
             'description_2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Description 2'}),
@@ -72,7 +85,6 @@ class ProduitForm(forms.ModelForm):
         # 1. Si remise est directement fournie, on la garde
         if remise and remise > 0:
             if prix is not None and prix > 0:
-                # Si on a prix et remise, on peut calculer prix_avant
                 cleaned_data['prix_avant'] = prix + remise
                 if pourcentage is None:
                     cleaned_data['pourcentage'] = (remise / (prix + remise)) * 100
@@ -83,10 +95,8 @@ class ProduitForm(forms.ModelForm):
                 raise forms.ValidationError(
                     "Le prix doit être inférieur au prix avant remise (prix < prix_avant)"
                 )
-            # Calcul automatique du pourcentage
             if pourcentage is None:
                 cleaned_data['pourcentage'] = ((prix_avant - prix) / prix_avant) * 100
-            # Calcul automatique de la remise
             if remise is None:
                 cleaned_data['remise'] = prix_avant - prix
         
@@ -105,7 +115,6 @@ class ProduitForm(forms.ModelForm):
         # 5. Validation du pourcentage
         pourcentage = cleaned_data.get('pourcentage')
         if pourcentage is not None:
-            # Au lieu de bloquer, on arrondit ou on accepte
             if pourcentage < 0:
                 cleaned_data['pourcentage'] = 0
             elif pourcentage > 100:
