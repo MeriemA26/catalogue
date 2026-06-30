@@ -1,4 +1,4 @@
-# catalogue_app/views.py - Version sans logs avec caractères spéciaux
+# catalogue_app/views.py - Version avec corrections
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
@@ -39,22 +39,66 @@ def upload(request):
     """Page d'upload avec traitement OCR pour une ou plusieurs images"""
     # Initialiser last_uploaded_image
     last_uploaded_image = request.session.get('last_uploaded_image', None)
+    last_uploaded_images = request.session.get('last_uploaded_images', [])
+    
+    # 🔥 Récupérer le catalogue actuel depuis la session
+    catalogue_id = request.session.get('active_catalogue_id', None)
+    catalogue_actuel = None
+    
+    if catalogue_id:
+        try:
+            catalogue_actuel = Catalogue.objects.get(id=catalogue_id)
+            print(f"✅ Catalogue récupéré depuis la session: ID {catalogue_actuel.id}")
+        except Catalogue.DoesNotExist:
+            catalogue_actuel = None
+            if 'active_catalogue_id' in request.session:
+                del request.session['active_catalogue_id']
+    
+    # 🔥 Si pas de catalogue dans la session, vérifier s'il y a des produits non sauvegardés
+    if not catalogue_actuel:
+        produits_non_sauvegardes_total = Produit.objects.filter(est_sauvegarde=False).count()
+        
+        if produits_non_sauvegardes_total > 0:
+            dernier_catalogue = Catalogue.objects.filter(
+                produits__est_sauvegarde=False
+            ).distinct().order_by('-date_upload').first()
+            
+            if dernier_catalogue:
+                catalogue_actuel = dernier_catalogue
+                request.session['active_catalogue_id'] = dernier_catalogue.id
+                print(f"✅ Catalogue récupéré depuis la base: ID {dernier_catalogue.id}")
+        else:
+            # Si plus de produits, nettoyer la session
+            if 'last_uploaded_images' in request.session:
+                del request.session['last_uploaded_images']
+            if 'last_uploaded_image' in request.session:
+                del request.session['last_uploaded_image']
+            if 'active_catalogue_id' in request.session:
+                del request.session['active_catalogue_id']
+            last_uploaded_images = []
+            last_uploaded_image = None
+            print("🗑️ Session nettoyée (plus de produits)")
+    
+    # Si pas d'image dans last_uploaded_image mais des images dans last_uploaded_images
+    if not last_uploaded_image and last_uploaded_images:
+        last_uploaded_image = last_uploaded_images[0] if last_uploaded_images else None
     
     # 🔥 Récupérer l'image du catalogue si elle n'est pas dans la session
-    if not last_uploaded_image:
-        dernier_catalogue = Catalogue.objects.filter(
-            produits__est_sauvegarde=False
-        ).distinct().order_by('-date_upload').first()
-        
-        if dernier_catalogue and dernier_catalogue.image_path:
-            last_uploaded_image = os.path.join(settings.MEDIA_URL, dernier_catalogue.image_path)
-            request.session['last_uploaded_image'] = last_uploaded_image
-            print(f"✅ Image récupérée depuis le catalogue ID {dernier_catalogue.id}: {last_uploaded_image}")
+    if not last_uploaded_image and catalogue_actuel and catalogue_actuel.image_path:
+        last_uploaded_image = os.path.join(settings.MEDIA_URL, catalogue_actuel.image_path)
+        request.session['last_uploaded_image'] = last_uploaded_image
+        if not last_uploaded_images:
+            last_uploaded_images = [last_uploaded_image]
+            request.session['last_uploaded_images'] = last_uploaded_images
+        print(f"✅ Image récupérée depuis le catalogue ID {catalogue_actuel.id}")
     
     # 🔍 DEBUG - Afficher l'état de la session
     print("=" * 80)
     print("🔍 UPLOAD VIEW - ÉTAT DE LA SESSION")
     print(f"📌 last_uploaded_image depuis session: {last_uploaded_image}")
+    print(f"📌 last_uploaded_images: {last_uploaded_images}")
+    print(f"📌 active_catalogue_id: {catalogue_id}")
+    print(f"📌 catalogue_actuel: {catalogue_actuel.id if catalogue_actuel else 'None'}")
     print(f"📌 Toute la session: {dict(request.session)}")
     print("=" * 80)
 
@@ -65,19 +109,25 @@ def upload(request):
                 enseigne = form.cleaned_data['enseigne']
                 date_debut = form.cleaned_data['date_debut']
                 date_fin = form.cleaned_data['date_fin']
-                images = request.FILES.getlist('images')  # 🔥 Récupérer plusieurs images
+                images = request.FILES.getlist('images')
                 
                 if not images:
                     messages.error(request, "Veuillez sélectionner au moins une image.")
                     return redirect('upload')
                 
-                # Créer ou récupérer le catalogue
+                # 🔥 Vérifier si le catalogue existe déjà
                 catalogue, created = Catalogue.objects.get_or_create(
                     enseigne=enseigne,
                     date_debut=date_debut,
                     date_fin=date_fin,
                     defaults={'date_upload': timezone.now()}
                 )
+                
+                # 🔥 Sauvegarder l'ID du catalogue dans la session
+                request.session['active_catalogue_id'] = catalogue.id
+                
+                # 🔥 Si le catalogue existe déjà, récupérer les images existantes
+                existing_images = request.session.get('last_uploaded_images', [])
                 
                 total_produits = 0
                 images_paths = []
@@ -204,23 +254,38 @@ def upload(request):
                                 traceback.print_exc()
                                 continue
                 
-                # Sauvegarder la première image dans la session
-                if images_paths:
-                    first_image_path = images_paths[0]
-                    image_url = os.path.join(settings.MEDIA_URL, first_image_path)
-                    request.session['last_uploaded_image'] = image_url
-                    last_uploaded_image = image_url
+                # 🔥 Sauvegarder TOUTES les images dans la session (conserver les anciennes + nouvelles)
+                all_image_urls = []
+                
+                # 1. Ajouter les images existantes
+                if existing_images:
+                    all_image_urls.extend(existing_images)
+                    print(f"📌 {len(existing_images)} images existantes conservées")
+                
+                # 2. Ajouter les nouvelles images
+                for path in images_paths:
+                    image_url = os.path.join(settings.MEDIA_URL, path)
+                    # Éviter les doublons
+                    if image_url not in all_image_urls:
+                        all_image_urls.append(image_url)
+                
+                if all_image_urls:
+                    request.session['last_uploaded_images'] = all_image_urls
+                    request.session['last_uploaded_image'] = all_image_urls[0]
+                    last_uploaded_image = all_image_urls[0]
+                    last_uploaded_images = all_image_urls
                     
                     # Sauvegarder aussi le chemin de la première image dans le catalogue
-                    # pour l'affichage
                     if not catalogue.image_path:
-                        catalogue.image_path = first_image_path
+                        catalogue.image_path = images_paths[0] if images_paths else None
                         catalogue.save()
+                    
+                    print(f"✅ {len(all_image_urls)} images totales sauvegardées dans la session")
                 
                 if total_produits > 0:
-                    messages.success(request, f'Upload réussi ! {total_produits} produits détectés sur {len(images)} page(s).')
+                    messages.success(request, f'Upload réussi ! {total_produits} nouveaux produits détectés sur {len(images)} page(s).')
                 else:
-                    messages.warning(request, f'Aucun produit détecté dans les {len(images)} images.')
+                    messages.warning(request, f'Aucun nouveau produit détecté dans les {len(images)} images.')
                 
             except Exception as e:
                 print(f"Erreur generale: {e}")
@@ -230,19 +295,54 @@ def upload(request):
             
             return redirect('upload')
     else:
+        # 🔥 Pré-remplir le formulaire avec les valeurs du catalogue actuel
         form = UploadForm()
+        
+        if catalogue_actuel:
+            initial_data = {
+                'enseigne': catalogue_actuel.enseigne.id,
+                'date_debut': catalogue_actuel.date_debut.strftime('%Y-%m-%d'),
+                'date_fin': catalogue_actuel.date_fin.strftime('%Y-%m-%d'),
+            }
+            form = UploadForm(initial=initial_data)
+            print(f"✅ Formulaire pré-rempli avec les valeurs du catalogue {catalogue_actuel.id}")
 
-    # Récupérer les produits non sauvegardés du dernier catalogue
+    # 🔥 Récupérer TOUS les produits non sauvegardés dans UN SEUL tableau
     catalogues_recents = {}
     produits_non_sauvegardes = 0
     
-    for enseigne in Enseigne.objects.all():
-        dernier_catalogue = Catalogue.objects.filter(enseigne=enseigne).order_by('-date_upload').first()
-        if dernier_catalogue:
-            produits_non_sauvegardes_catalogue = dernier_catalogue.produits.filter(est_sauvegarde=False)
-            if produits_non_sauvegardes_catalogue.exists():
-                catalogues_recents[enseigne.nom] = produits_non_sauvegardes_catalogue
-                produits_non_sauvegardes += produits_non_sauvegardes_catalogue.count()
+    # Récupérer tous les produits non sauvegardés
+    tous_produits = Produit.objects.filter(est_sauvegarde=False).order_by('-created_at')
+    
+    if tous_produits.exists():
+        # 🔥 Utiliser le premier catalogue comme référence
+        premier_produit = tous_produits.first()
+        if premier_produit and premier_produit.catalogue:
+            catalogue_ref = premier_produit.catalogue
+            enseigne_nom = catalogue_ref.enseigne.nom if catalogue_ref.enseigne else "Sans enseigne"
+            key = f"{enseigne_nom} - {catalogue_ref.date_debut} au {catalogue_ref.date_fin}"
+            
+            # 🔥 Prendre tous les produits non sauvegardés (même de plusieurs catalogues)
+            # mais les regrouper dans un seul tableau
+            catalogues_recents[key] = tous_produits
+            produits_non_sauvegardes = tous_produits.count()
+            print(f"✅ {key}: {produits_non_sauvegardes} produits (regroupés)")
+        else:
+            # Fallback: regrouper par catalogue
+            catalogues_avec_produits = Catalogue.objects.filter(
+                produits__est_sauvegarde=False
+            ).distinct().order_by('-date_upload')
+            
+            for catalogue in catalogues_avec_produits:
+                enseigne_nom = catalogue.enseigne.nom if catalogue.enseigne else "Sans enseigne"
+                produits_non_sauvegardes_catalogue = catalogue.produits.filter(est_sauvegarde=False)
+                count = produits_non_sauvegardes_catalogue.count()
+                
+                if count > 0:
+                    key = f"{enseigne_nom} - {catalogue.date_debut} au {catalogue.date_fin}"
+                    catalogues_recents[key] = produits_non_sauvegardes_catalogue
+                    produits_non_sauvegardes += count
+                    print(f"✅ {key}: {count} produits")
     
     # 🔍 DEBUG - Afficher les produits trouvés
     print("=" * 80)
@@ -250,6 +350,8 @@ def upload(request):
     print(f"📌 catalogues_recents: {list(catalogues_recents.keys())}")
     print(f"📌 produits_non_sauvegardes: {produits_non_sauvegardes}")
     print(f"📌 last_uploaded_image final: {last_uploaded_image}")
+    print(f"📌 last_uploaded_images: {last_uploaded_images}")
+    print(f"📌 catalogue_actuel final: {catalogue_actuel.id if catalogue_actuel else 'None'}")
     print("=" * 80)
 
     total_produits = Produit.objects.count()
@@ -265,6 +367,8 @@ def upload(request):
         'produits_sauvegardes': produits_sauvegardes,
         'produits_non_sauvegardes': produits_non_sauvegardes_total,
         'last_uploaded_image': last_uploaded_image,
+        'last_uploaded_images': last_uploaded_images,
+        'catalogue_actuel': catalogue_actuel,
     }
     return render(request, 'upload.html', context)
 
@@ -317,9 +421,14 @@ def upload_stream(request):
 
     total_produits = 0
     images_paths = []
+    all_image_urls = []
+    
+    # 🔥 Récupérer les images existantes AVANT le traitement
+    existing_images = request.session.get('last_uploaded_images', [])
+    print(f"📌 Images existantes dans la session: {len(existing_images)}")
 
     def event_stream():
-        nonlocal total_produits, images_paths
+        nonlocal total_produits, images_paths, all_image_urls
         ocr = OCRProcessor()
 
         try:
@@ -345,6 +454,8 @@ def upload_stream(request):
                     ContentFile(image.read())
                 )
                 images_paths.append(image_path)
+                image_url = os.path.join(settings.MEDIA_URL, image_path)
+                all_image_urls.append(image_url)
                 
                 # Si c'est la première image, la sauvegarder dans le catalogue
                 if img_idx == 0:
@@ -505,8 +616,25 @@ def upload_stream(request):
 
                 yield f"data: {json.dumps({'type': 'page_done', 'page': img_idx + 1, 'count': total})}\n\n"
 
+            # 🔥 Combiner les images existantes et nouvelles
+            final_image_urls = []
+            if existing_images:
+                final_image_urls.extend(existing_images)
+                print(f"📌 {len(existing_images)} images existantes conservées")
+            
+            for url in all_image_urls:
+                if url not in final_image_urls:
+                    final_image_urls.append(url)
+            
+            if final_image_urls:
+                request.session['last_uploaded_images'] = final_image_urls
+                request.session['last_uploaded_image'] = final_image_urls[0]
+                request.session.modified = True
+                request.session.save()
+                print(f"✅ {len(final_image_urls)} images totales sauvegardées dans la session")
+
             # Fin du traitement - toutes les images traitées
-            yield f"data: {json.dumps({'type': 'done', 'count': total_produits, 'pages': len(images)})}\n\n"
+            yield f"data: {json.dumps({'type': 'done', 'count': total_produits, 'pages': len(images), 'images': final_image_urls})}\n\n"
 
         except Exception as e:
             import traceback
@@ -517,6 +645,7 @@ def upload_stream(request):
     response['Cache-Control'] = 'no-cache'
     response['X-Accel-Buffering'] = 'no'
     return response
+
 
 def edit_product(request, product_id):
     """Éditer un produit individuel avec calcul automatique des prix (TND)"""
@@ -568,7 +697,7 @@ def edit_product(request, product_id):
                 produit.save()
                 
                 messages.success(request, 'Produit mis à jour avec succès !')
-                return redirect('upload')  # Redirige vers upload pour voir le tableau mis à jour
+                return redirect('upload')
                 
             except Exception as e:
                 messages.error(request, f"Erreur lors de la mise à jour: {str(e)}")
@@ -582,6 +711,7 @@ def edit_product(request, product_id):
         'produit': produit,
     }
     return render(request, 'edit_product.html', context)
+
 
 @csrf_exempt
 def update_product_field(request):
@@ -633,7 +763,8 @@ def save_selected_products(request):
         print("=" * 80)
         print("🔍 SAVE SELECTED - AVANT TRAITEMENT")
         print(f"📌 Session avant: {dict(request.session)}")
-        print(f"📌 last_uploaded_image avant: {request.session.get('last_uploaded_image', 'NON TROUVÉ')}")
+        print(f"📌 last_uploaded_images avant: {request.session.get('last_uploaded_images', 'NON TROUVÉ')}")
+        print(f"📌 active_catalogue_id avant: {request.session.get('active_catalogue_id', 'NON TROUVÉ')}")
         print("=" * 80)
         try:
             product_ids = request.POST.getlist('selected_products')
@@ -645,31 +776,46 @@ def save_selected_products(request):
             count = produits.count()
             
             if count == 0:
-                messages.warning(request, 'Produits non trouvés ou déjà sauvegardés.')
+                messages.warning(request, 'Aucun produit sélectionné non sauvegardé. Ils sont peut-être déjà sauvegardés.')
                 return redirect('upload')
             
             produits.update(est_sauvegarde=True)
             
             restants = Produit.objects.filter(est_sauvegarde=False).count()
             
-            # 🔥 SI plus de produits, supprimer l'image
-            if restants == 0:
-                if 'last_uploaded_image' in request.session:
-                    del request.session['last_uploaded_image']
-                    print("🗑️ Image supprimée de la session (plus de produits)")
-                messages.success(request, f'Tous les {count} produits sélectionnés sont sauvegardés !')
+            # 🔥 GARDER le catalogue dans la session QUOI QU'IL ARRIVE
+            if 'active_catalogue_id' not in request.session:
+                dernier_catalogue = Catalogue.objects.filter(
+                    produits__est_sauvegarde=False
+                ).distinct().order_by('-date_upload').first()
+                if dernier_catalogue:
+                    request.session['active_catalogue_id'] = dernier_catalogue.id
+                    print(f"✅ Catalogue ID {dernier_catalogue.id} sauvegardé dans la session")
+            
+            # Garder les images dans la session
+            images_actuelles = request.session.get('last_uploaded_images', None)
+            if images_actuelles:
+                request.session['last_uploaded_images'] = images_actuelles
+                if images_actuelles:
+                    request.session['last_uploaded_image'] = images_actuelles[0]
+                request.session.modified = True
+                print(f"✅ {len(images_actuelles)} images conservées dans la session")
             else:
-                # Garder l'image dans la session car il reste des produits
                 image_actuelle = request.session.get('last_uploaded_image', None)
                 if image_actuelle:
                     request.session['last_uploaded_image'] = image_actuelle
                     print(f"✅ Image conservée dans la session: {image_actuelle}")
+            
+            if restants == 0:
+                messages.success(request, f'Tous les {count} produits sélectionnés sont sauvegardés !')
+            else:
                 messages.success(request, f'{count} produits sauvegardés ! Il reste {restants} produit(s) en attente.')
             
             print("=" * 80)
             print("🔍 SAVE SELECTED - APRÈS TRAITEMENT")
             print(f"📌 Session après: {dict(request.session)}")
-            print(f"📌 last_uploaded_image après: {request.session.get('last_uploaded_image', 'NON TROUVÉ')}")
+            print(f"📌 last_uploaded_images après: {request.session.get('last_uploaded_images', 'NON TROUVÉ')}")
+            print(f"📌 active_catalogue_id après: {request.session.get('active_catalogue_id', 'NON TROUVÉ')}")
             print(f"📌 restants: {restants}")
             print("=" * 80)
             
@@ -678,6 +824,7 @@ def save_selected_products(request):
         
         return redirect('upload')
     return redirect('upload')
+
 
 def save_all_products(request):
     """Sauvegarder tous les produits et rediriger vers product_list"""
@@ -692,8 +839,18 @@ def save_all_products(request):
             
             produits.update(est_sauvegarde=True)
             
+            # 🔥 Supprimer TOUTES les données de session
+            if 'last_uploaded_images' in request.session:
+                del request.session['last_uploaded_images']
+                print("🗑️ Toutes les images supprimées de la session (save_all)")
             if 'last_uploaded_image' in request.session:
                 del request.session['last_uploaded_image']
+            if 'active_catalogue_id' in request.session:
+                del request.session['active_catalogue_id']
+                print("🗑️ active_catalogue_id supprimé (save_all)")
+            
+            request.session.modified = True
+            request.session.save()
             
             messages.success(request, f'{count} produits sauvegardes !')
             
@@ -710,7 +867,7 @@ def delete_selected_products(request):
         print("=" * 80)
         print("🔍 DELETE SELECTED - AVANT TRAITEMENT")
         print(f"📌 Session avant: {dict(request.session)}")
-        print(f"📌 last_uploaded_image avant: {request.session.get('last_uploaded_image', 'NON TROUVÉ')}")
+        print(f"📌 active_catalogue_id avant: {request.session.get('active_catalogue_id', 'NON TROUVÉ')}")
         print("=" * 80)
         try:
             product_ids = request.POST.getlist('selected_products')
@@ -722,7 +879,7 @@ def delete_selected_products(request):
             count = produits.count()
             
             if count == 0:
-                messages.warning(request, 'Produits non trouvés ou déjà sauvegardés.')
+                messages.warning(request, 'Aucun produit sélectionné non sauvegardé. Ils sont peut-être déjà supprimés.')
                 return redirect('upload')
             
             for produit in produits:
@@ -738,24 +895,39 @@ def delete_selected_products(request):
             
             restants = Produit.objects.filter(est_sauvegarde=False).count()
             
-            # 🔥 SI plus de produits, supprimer l'image
-            if restants == 0:
-                if 'last_uploaded_image' in request.session:
-                    del request.session['last_uploaded_image']
-                    print("🗑️ Image supprimée de la session (plus de produits)")
-                messages.success(request, f'Tous les {count} produits sélectionnés sont supprimés !')
+            # 🔥 GARDER le catalogue dans la session QUOI QU'IL ARRIVE
+            if 'active_catalogue_id' not in request.session:
+                dernier_catalogue = Catalogue.objects.filter(
+                    produits__est_sauvegarde=False
+                ).distinct().order_by('-date_upload').first()
+                if dernier_catalogue:
+                    request.session['active_catalogue_id'] = dernier_catalogue.id
+                    print(f"✅ Catalogue ID {dernier_catalogue.id} sauvegardé dans la session")
+            
+            # Garder les images dans la session
+            images_actuelles = request.session.get('last_uploaded_images', None)
+            if images_actuelles:
+                request.session['last_uploaded_images'] = images_actuelles
+                if images_actuelles:
+                    request.session['last_uploaded_image'] = images_actuelles[0]
+                request.session.modified = True
+                print(f"✅ {len(images_actuelles)} images conservées dans la session")
             else:
-                # Garder l'image dans la session car il reste des produits
                 image_actuelle = request.session.get('last_uploaded_image', None)
                 if image_actuelle:
                     request.session['last_uploaded_image'] = image_actuelle
                     print(f"✅ Image conservée dans la session: {image_actuelle}")
+            
+            if restants == 0:
+                messages.success(request, f'Tous les {count} produits sélectionnés sont supprimés !')
+            else:
                 messages.success(request, f'{count} produits supprimés ! Il reste {restants} produit(s).')
             
             print("=" * 80)
             print("🔍 DELETE SELECTED - APRÈS TRAITEMENT")
             print(f"📌 Session après: {dict(request.session)}")
-            print(f"📌 last_uploaded_image après: {request.session.get('last_uploaded_image', 'NON TROUVÉ')}")
+            print(f"📌 last_uploaded_images après: {request.session.get('last_uploaded_images', 'NON TROUVÉ')}")
+            print(f"📌 active_catalogue_id après: {request.session.get('active_catalogue_id', 'NON TROUVÉ')}")
             print(f"📌 restants: {restants}")
             print("=" * 80)
             
@@ -765,11 +937,11 @@ def delete_selected_products(request):
         return redirect('upload')
     return redirect('upload')
 
+
 def delete_all_products(request):
     """Supprimer tous les produits non sauvegardés (depuis la base de données)"""
     if request.method == 'POST':
         try:
-            # Récupérer tous les produits non sauvegardés
             produits = Produit.objects.filter(est_sauvegarde=False)
             count = produits.count()
             
@@ -789,8 +961,18 @@ def delete_all_products(request):
             
             produits.delete()
             
+            # 🔥 Supprimer TOUTES les données de session
+            if 'last_uploaded_images' in request.session:
+                del request.session['last_uploaded_images']
+                print("🗑️ Toutes les images supprimées de la session (delete_all)")
             if 'last_uploaded_image' in request.session:
                 del request.session['last_uploaded_image']
+            if 'active_catalogue_id' in request.session:
+                del request.session['active_catalogue_id']
+                print("🗑️ active_catalogue_id supprimé (delete_all)")
+            
+            request.session.modified = True
+            request.session.save()
             
             messages.success(request, f'{count} produits supprimés !')
             
@@ -799,6 +981,7 @@ def delete_all_products(request):
         
         return redirect('upload')
     return redirect('upload')
+
 
 def product_list(request):
     """Liste des produits du dernier catalogue sauvegardé"""
@@ -831,6 +1014,7 @@ def product_list(request):
         }
     
     return render(request, 'product_list.html', context)
+
 
 def get_product_details(request, product_id):
     """API pour récupérer les détails d'un produit (AJAX)"""
@@ -867,6 +1051,7 @@ def get_catalogue_image(request, catalogue_id):
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Methode non autorisee'})
+
 
 def get_recent_products(request):
     """Récupère les produits non sauvegardés récents"""

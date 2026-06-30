@@ -1,11 +1,13 @@
 # catalogue_app/pipeline.py
 import os
 import re
+from decimal import Decimal, InvalidOperation
 import cv2
 from ultralytics import YOLO
 import easyocr
 import torch
 import base64
+
 
 # Correction du chemin des modèles
 ML_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -18,6 +20,7 @@ _product_model = None
 _field_model = None
 _reader_latin = None
 _reader_ar = None
+
 
 # Fonctions de détection de langue (définies en dehors de toute classe)
 def _is_arabic(text):

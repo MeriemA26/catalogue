@@ -15,4 +15,6 @@ urlpatterns = [
     path('api/product/<int:product_id>/', views.get_product_details, name='get_product_details'),
     path('api/catalogue/<int:catalogue_id>/image/', views.get_catalogue_image, name='get_catalogue_image'),
     path('upload/stream/', views.upload_stream, name='upload_stream'),
+    path('api/recent-products/', views.get_recent_products, name='get_recent_products'),
+
 ]
