@@ -16,5 +16,8 @@ urlpatterns = [
     path('api/catalogue/<int:catalogue_id>/image/', views.get_catalogue_image, name='get_catalogue_image'),
     path('upload/stream/', views.upload_stream, name='upload_stream'),
     path('api/recent-products/', views.get_recent_products, name='get_recent_products'),
-
+    path('product/add/', views.add_product, name='add_product'),
+    path('api/marques/', views.get_marques_list, name='get_marques_list'),
+    path('api/delete-by-marque/', views.delete_by_marque, name='delete_by_marque'),
+    path('api/save-by-marque/', views.save_by_marque, name='save_by_marque'),
 ]

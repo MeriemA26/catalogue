@@ -1073,3 +1073,229 @@ def get_recent_products(request):
             'image_url': p.image_produit.url if p.image_produit else None,
         })
     return JsonResponse({'products': data})
+
+# catalogue_app/views.py - Fonction add_product CORRIGÉE
+# catalogue_app/views.py - Fonction add_product SIMPLIFIÉE (sans modèle)
+
+def add_product(request):
+    """Page pour ajouter un produit manuellement (sans extraction)"""
+    
+    # Vérifier si un catalogue actif existe
+    catalogue_id = request.session.get('active_catalogue_id')
+    if not catalogue_id:
+        messages.error(request, "❌ Aucun catalogue actif. Veuillez d'abord uploader une image.")
+        return redirect('upload')
+    
+    try:
+        catalogue = Catalogue.objects.get(id=catalogue_id)
+    except Catalogue.DoesNotExist:
+        messages.error(request, "❌ Catalogue non trouvé.")
+        return redirect('upload')
+    
+    if request.method == 'POST':
+        # Récupérer les données du formulaire
+        nom_fr = request.POST.get('nom_fr', '').strip()
+        nom_ar = request.POST.get('nom_ar', '').strip()
+        marque = request.POST.get('marque', '').strip()
+        description = request.POST.get('description', '').strip()
+        description_2 = request.POST.get('description_2', '').strip()
+        description_3 = request.POST.get('description_3', '').strip()
+        
+        # Convertir les prix
+        prix = None
+        if request.POST.get('prix'):
+            try:
+                prix = Decimal(request.POST.get('prix').replace(',', '.'))
+            except:
+                pass
+        
+        prix_avant = None
+        if request.POST.get('prix_avant'):
+            try:
+                prix_avant = Decimal(request.POST.get('prix_avant').replace(',', '.'))
+            except:
+                pass
+        
+        pourcentage = None
+        if request.POST.get('pourcentage'):
+            try:
+                pourcentage = Decimal(request.POST.get('pourcentage').replace(',', '.'))
+            except:
+                pass
+
+        # Gérer l'image du produit
+        image_produit = None
+        if 'product_image' in request.FILES:
+            image_produit = request.FILES['product_image']
+                
+        # Validation - au moins un nom
+        if not nom_fr and not nom_ar:
+            messages.error(request, "❌ Veuillez saisir au moins un nom (FR ou AR).")
+            return render(request, 'add_product.html', {'catalogue': catalogue})
+        
+        # Créer le produit
+        produit = Produit(
+            catalogue=catalogue,
+            nom=nom_fr or nom_ar,
+            nom_fr=nom_fr or None,
+            nom_ar=nom_ar or None,
+            marque=marque or None,
+            prix=prix,
+            prix_avant=prix_avant,
+            pourcentage=pourcentage,
+            description=description or None,
+            description_2=description_2 or None,
+            description_3=description_3 or None,
+            image_produit=image_produit,
+            est_sauvegarde=False,
+        )
+        produit.save()
+        
+        messages.success(request, f"✅ Produit '{produit.nom}' ajouté avec succès !")
+        return redirect('upload')
+    
+    context = {
+        'catalogue': catalogue,
+    }
+    return render(request, 'add_product.html', context)
+# catalogue_app/views.py - Ajoutez ces fonctions
+
+def get_marques_list(request):
+    """API pour récupérer la liste des marques uniques des produits non sauvegardés"""
+    if request.method == 'GET':
+        try:
+            # Récupérer toutes les marques uniques des produits non sauvegardés
+            marques = Produit.objects.filter(
+                est_sauvegarde=False
+            ).exclude(
+                marque__isnull=True
+            ).exclude(
+                marque=''
+            ).values_list('marque', flat=True).distinct().order_by('marque')
+            
+            # Filtrer les marques vides ou None
+            marques_list = [m for m in marques if m and m.strip()]
+            
+            print(f"🔍 Marques trouvées: {marques_list}")
+            
+            return JsonResponse({
+                'success': True,
+                'marques': marques_list
+            })
+        except Exception as e:
+            print(f"❌ Erreur get_marques_list: {e}")
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
+
+
+def delete_by_marque(request):
+    """Supprimer tous les produits d'une marque donnée"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            marque = data.get('marque', '').strip()
+            
+            print(f"🔍 Suppression par marque: '{marque}'")
+            
+            if not marque:
+                return JsonResponse({'success': False, 'error': 'Aucune marque spécifiée'})
+            
+            # Récupérer les produits de cette marque non sauvegardés (insensible à la casse)
+            produits = Produit.objects.filter(
+                marque__iexact=marque,
+                est_sauvegarde=False
+            )
+            
+            count = produits.count()
+            print(f"🔍 Produits trouvés pour '{marque}': {count}")
+            
+            if count == 0:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Aucun produit trouvé pour la marque "{marque}"'
+                })
+            
+            # Supprimer les images associées
+            for produit in produits:
+                if produit.image_produit:
+                    try:
+                        image_path = os.path.join(settings.MEDIA_ROOT, str(produit.image_produit))
+                        if os.path.exists(image_path):
+                            os.remove(image_path)
+                    except:
+                        pass
+            
+            # Supprimer les produits
+            produits.delete()
+            
+            # Vérifier s'il reste des produits
+            restants = Produit.objects.filter(est_sauvegarde=False).count()
+            
+            print(f"✅ {count} produits supprimés, restants: {restants}")
+            
+            return JsonResponse({
+                'success': True,
+                'count': count,
+                'restants': restants,
+                'message': f'{count} produit(s) de la marque "{marque}" supprimé(s)'
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'JSON invalide'})
+        except Exception as e:
+            print(f"❌ Erreur delete_by_marque: {e}")
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
+
+# catalogue_app/views.py - Ajoutez cette fonction
+
+def save_by_marque(request):
+    """Sauvegarder tous les produits d'une marque donnée"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            marque = data.get('marque', '').strip()
+            
+            print(f"🔍 Sauvegarde par marque: '{marque}'")
+            
+            if not marque:
+                return JsonResponse({'success': False, 'error': 'Aucune marque spécifiée'})
+            
+            # Récupérer les produits de cette marque non sauvegardés (insensible à la casse)
+            produits = Produit.objects.filter(
+                marque__iexact=marque,
+                est_sauvegarde=False
+            )
+            
+            count = produits.count()
+            print(f"🔍 Produits trouvés pour '{marque}': {count}")
+            
+            if count == 0:
+                return JsonResponse({
+                    'success': False,
+                    'error': f'Aucun produit trouvé pour la marque "{marque}"'
+                })
+            
+            # Sauvegarder les produits
+            produits.update(est_sauvegarde=True)
+            
+            # Vérifier s'il reste des produits non sauvegardés
+            restants = Produit.objects.filter(est_sauvegarde=False).count()
+            
+            print(f"✅ {count} produits sauvegardés, restants: {restants}")
+            
+            return JsonResponse({
+                'success': True,
+                'count': count,
+                'restants': restants,
+                'message': f'{count} produit(s) de la marque "{marque}" sauvegardé(s)'
+            })
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'JSON invalide'})
+        except Exception as e:
+            print(f"❌ Erreur save_by_marque: {e}")
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})

@@ -105,6 +105,44 @@
     </div>
     <small class="text-muted" id="streamCounter"></small>
 </div>
+<!-- ================================================================ -->
+<!--  FILTRE ET SUPPRESSION PAR MARQUE (FLEXIBLE)                    -->
+<!-- ================================================================ -->
+<div id="filterSection" style="{% if produits_non_sauvegardes == 0 %}display:none;{% endif %}" class="mt-3 mb-3">
+    <div class="card">
+        <div class="card-body">
+            <div class="row align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label fw-bold">🔍 Rechercher une marque</label>
+                    <input type="text" class="form-control" id="marqueSearchInput" 
+                           placeholder="Tapez une marque (ex: LUXIS, PAPILLON, LAND'OR...)" 
+                           autocomplete="off">
+                    <small class="text-muted">Recherche insensible à la casse et aux caractères spéciaux</small>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100" id="applyFilterBtn">
+                        <i class="fas fa-search"></i> Filtrer
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-secondary w-100" id="resetFilterBtn">
+                        <i class="fas fa-undo"></i> Réinitialiser
+                    </button>
+                </div>
+                <div class="col-md-1">
+                    <button class="btn btn-success w-100" id="saveByMarqueBtn" title="Sauvegarder tous les produits de cette marque">
+                        save <i class="fas fa-save"></i>
+                    </button>
+                </div>
+                <div class="col-md-1">
+                    <button class="btn btn-danger w-100" id="deleteByMarqueBtn" title="Supprimer tous les produits de cette marque">
+                        delete <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- 🔥 TABLEAU RENDU PAR DJANGO (mais caché et utilisé comme source de données) -->
 <div id="productData" style="display:none;" 
@@ -123,7 +161,7 @@
                      "description": "{{ produit.description|default:''|escapejs }}",
                      "description_2": "{{ produit.description_2|default:''|escapejs }}",
                      "description_3": "{{ produit.description_3|default:''|escapejs }}",
-                     "image_url": "{{ produit.image_produit.url|default:'' }}"
+                     "image_url": "{% if produit.image_produit %}{{ produit.image_produit.url }}{% endif %}"
                  }{% if not forloop.last %},{% endif %}
                  {% endif %}
              {% endfor %}
@@ -291,11 +329,14 @@ $(document).ready(function () {
             '<tbody id="productTableBody">' +
             '</tbody>' +
             '</table></div>' +
-            '<div class="btn-group mt-2" role="group">' +
+            '<div class="d-flex flex-wrap gap-2 mt-2">' +
+            '<div class="btn-group" role="group">' +
             '<button type="submit" formaction="{% url "save_selected_products" %}" class="btn btn-success" id="saveSelectedBtn"><i class="fas fa-save"></i> Sauvegarder sélectionnés</button>' +
             '<button type="submit" formaction="{% url "save_all_products" %}" class="btn btn-primary" id="saveAllBtn"><i class="fas fa-save"></i> Sauvegarder tous</button>' +
             '<button type="submit" formaction="{% url "delete_selected_products" %}" class="btn btn-danger" id="deleteSelectedBtn"><i class="fas fa-trash"></i> Supprimer sélectionnés</button>' +
             '<button type="submit" formaction="{% url "delete_all_products" %}" class="btn btn-dark" id="deleteAllBtn"><i class="fas fa-trash"></i> Supprimer tous</button>' +
+            '</div>' +
+            '<a href="{% url "add_product" %}" class="btn btn-success" id="addProductBtn"><i class="fas fa-plus"></i> Ajouter un produit</a>' +
             '</div></form></div></div>'
         );
         $('#productSectionContainer').html(section);
@@ -313,9 +354,11 @@ $(document).ready(function () {
         if (count === 0) {
             $('#productSection').hide();
             $('#noProductsMessage').show();
+            $('#addProductBtn').hide();
         } else {
             $('#productSection').show();
             $('#noProductsMessage').hide();
+            $('#addProductBtn').show();
         }
         return count;
     }
@@ -498,7 +541,513 @@ $(document).ready(function () {
             }
         }
     });
+        // ================================================================
+        //  FILTRE PAR MARQUE (FLEXIBLE) ET SUPPRESSION PAR MARQUE
+        // ================================================================
 
+        // Variables
+        var allMarques = [];
+        var currentFilterMarque = '';
+        var debugMode = true;
+
+        // Fonction de debug
+        function debugLog(message, type) {
+            if (!debugMode) return;
+            var debugInfo = $('#debugInfo');
+            debugInfo.show();
+            var timestamp = new Date().toLocaleTimeString();
+            var prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : '🔍';
+            debugInfo.html(prefix + ' [' + timestamp + '] ' + message);
+            console.log(prefix + ' ' + message);
+        }
+
+        // Charger la liste des marques
+        function chargerMarques() {
+            debugLog('Chargement des marques...', 'info');
+            
+            $.ajax({
+                url: "{% url 'get_marques_list' %}",
+                method: 'GET',
+                success: function(response) {
+                    if (response.success && response.marques.length > 0) {
+                        allMarques = response.marques;
+                        debugLog('✅ ' + allMarques.length + ' marques chargées: ' + allMarques.join(', '), 'success');
+                        
+                        // Afficher les suggestions
+                        afficherSuggestions(allMarques);
+                        
+                        $('#filterSection').show();
+                        $('#debugStatus').removeClass('bg-secondary').addClass('bg-success').text('Debug: ' + allMarques.length + ' marques');
+                    } else {
+                        debugLog('⚠️ Aucune marque trouvée', 'error');
+                        $('#filterSection').hide();
+                        $('#debugStatus').removeClass('bg-secondary').addClass('bg-warning').text('Debug: Aucune marque');
+                    }
+                },
+                error: function(xhr) {
+                    debugLog('❌ Erreur lors du chargement des marques: ' + xhr.status, 'error');
+                    $('#filterSection').hide();
+                    $('#debugStatus').removeClass('bg-secondary').addClass('bg-danger').text('Debug: Erreur');
+                }
+            });
+        }
+
+        // Afficher les suggestions de marques
+        function afficherSuggestions(marques) {
+            var container = $('#suggestionsContainer');
+            container.empty();
+            
+            if (marques.length === 0) {
+                $('#marqueSuggestions').hide();
+                return;
+            }
+            
+            // Afficher les 10 premières marques
+            var displayMarques = marques.slice(0, 10);
+            displayMarques.forEach(function(marque) {
+                var badge = $('<span class="badge bg-light text-dark border p-2 me-1 mb-1" style="cursor:pointer;">')
+                    .text(marque)
+                    .on('click', function() {
+                        $('#marqueSearchInput').val(marque);
+                        applyFilter();
+                    });
+                container.append(badge);
+            });
+            
+            if (marques.length > 10) {
+                container.append('<span class="badge bg-light text-muted p-2 me-1 mb-1">+' + (marques.length - 10) + ' autres</span>');
+            }
+            
+            $('#marqueSuggestions').show();
+        }
+
+        // Normaliser une chaîne pour la recherche (insensible à la casse et aux caractères spéciaux)
+        function normalizeString(str) {
+            if (!str) return '';
+            return str
+                .toLowerCase()
+                .trim()
+                .replace(/[^a-z0-9]/g, '') // Enlever les caractères spéciaux
+                .replace(/\s+/g, ''); // Enlever les espaces
+        }
+
+        // Appliquer le filtre
+        function applyFilter() {
+            var searchTerm = $('#marqueSearchInput').val().trim();
+            
+            debugLog('🔍 Application du filtre pour: "' + searchTerm + '"', 'info');
+            
+            if (!searchTerm) {
+                debugLog('⚠️ Terme de recherche vide, réinitialisation du filtre', 'info');
+                resetFilter();
+                return;
+            }
+            
+            // Normaliser le terme de recherche
+            var normalizedSearch = normalizeString(searchTerm);
+            debugLog('🔍 Terme normalisé: "' + normalizedSearch + '"', 'info');
+            
+            var found = false;
+            var matchedMarque = '';
+            var visibleCount = 0;
+            
+            // Parcourir toutes les lignes du tableau
+            $('#productTableBody tr').each(function() {
+                var row = $(this);
+                var rowMarque = row.find('td:eq(5)').text().trim();
+                var normalizedRowMarque = normalizeString(rowMarque);
+                
+                // Vérifier si la marque correspond (insensible à la casse et aux caractères spéciaux)
+                var match = normalizedRowMarque.indexOf(normalizedSearch) !== -1;
+                
+                if (match) {
+                    row.show();
+                    visibleCount++;
+                    found = true;
+                    matchedMarque = rowMarque;
+                    debugLog('✅ Correspondance trouvée: "' + rowMarque + '"', 'success');
+                } else {
+                    row.hide();
+                }
+            });
+            
+            // 🔥 CORRECTION : Garder le tableau visible même si aucun produit trouvé
+            if (found) {
+                currentFilterMarque = searchTerm;
+                $('#filterInfo').html('🔍 <strong>' + visibleCount + '</strong> produit(s) trouvé(s) pour la marque <strong>"' + matchedMarque + '"</strong>');
+                $('#debugInfo').show();
+                debugLog('✅ Filtre appliqué: ' + visibleCount + ' produits visibles', 'success');
+                
+                // Afficher le tableau avec les produits trouvés
+                $('#productSection').show();
+                $('#noProductsMessage').hide();
+                
+            } else {
+                // 🔥 CORRECTION : Tableau reste visible mais vide
+                $('#filterInfo').html('⚠️ Aucun produit trouvé pour la marque <strong>"' + searchTerm + '"</strong>');
+                debugLog('⚠️ Aucun produit trouvé pour "' + searchTerm + '"', 'error');
+                
+                // 🔥 Le tableau reste visible, toutes les lignes sont cachées
+                $('#productSection').show(); // Garder le tableau visible
+                
+                // 🔥 Afficher un message dans le tableau lui-même
+                // Vider le corps du tableau et ajouter une ligne de message
+                var $tableBody = $('#productTableBody');
+                $tableBody.empty(); // Vider toutes les lignes
+                $tableBody.append(
+                    '<tr id="no-result-row">' +
+                    '<td colspan="13" class="text-center text-muted py-4">' +
+                    '<i class="fas fa-search fa-2x d-block mb-2"></i>' +
+                    'Aucun produit trouvé pour la marque <strong>"' + searchTerm + '"</strong><br>' +
+                    '<small>Essayez une autre marque ou réinitialisez le filtre</small>' +
+                    '</td>' +
+                    '</tr>'
+                );
+                
+                // Cacher le message "Tous les produits ont été sauvegardés"
+                $('#noProductsMessage').hide();
+                
+                // Afficher les suggestions
+                var suggestions = allMarques.filter(function(m) {
+                    return normalizeString(m).indexOf(normalizedSearch) !== -1;
+                });
+                
+                if (suggestions.length > 0) {
+                    $('#filterInfo').append('<br><small>💡 Essayez: ' + suggestions.join(', ') + '</small>');
+                    debugLog('💡 Suggestions: ' + suggestions.join(', '), 'info');
+                } else if (allMarques.length > 0) {
+                    var displayMarques = allMarques.slice(0, 5).join(', ');
+                    $('#filterInfo').append('<br><small>💡 Marques disponibles: ' + displayMarques + (allMarques.length > 5 ? '...' : '') + '</small>');
+                    debugLog('💡 Marques disponibles: ' + displayMarques, 'info');
+                }
+                
+                // Mettre à jour le badge
+                $('#pendingBadge').text('0 produits en attente');
+                $('.card-header .badge.bg-warning').text('0 produits en attente');
+                $('#totalPendingBadge').text('0 produit(s) en attente');
+            }
+        }
+
+        // Réinitialiser le filtre
+        function resetFilter() {
+            debugLog('🔄 Réinitialisation du filtre', 'info');
+            
+            $('#marqueSearchInput').val('');
+            currentFilterMarque = '';
+            $('#filterInfo').html('');
+            $('#debugInfo').hide();
+            
+            // 🔥 CORRECTION : Reconstruire le tableau avec tous les produits
+            var $tableBody = $('#productTableBody');
+            $tableBody.empty(); // Vider le tableau
+            
+            // Recharger tous les produits depuis les données
+            var productData = $('#productData').data('products');
+            if (productData && productData.length > 0) {
+                productData.forEach(function(p) {
+                    var row = createProductRow(p);
+                    $tableBody.append(row);
+                });
+            }
+            
+            // Afficher le tableau
+            $('#productSection').show();
+            $('#noProductsMessage').hide();
+            
+            var totalCount = $('#productTableBody tr').length;
+            debugLog('🔄 ' + totalCount + ' produits affichés', 'success');
+            
+            // Mettre à jour les badges
+            updateFilterBadges(totalCount);
+        }
+
+        // Fonction helper pour créer une ligne de produit
+        function createProductRow(p) {
+            var imgHtml = p.image_url
+                ? '<img src="' + p.image_url + '" class="product-thumb" style="width:60px;height:60px;object-fit:cover;border-radius:5px;border:1px solid #ddd;cursor:pointer;" title="Cliquer pour agrandir" onclick="window.open(this.src, \'_blank\')">'
+                : '<span class="text-muted"><i class="fas fa-image"></i></span>';
+                
+            var prixHtml = '';
+            if (p.prix) {
+                var prix = parseFloat(p.prix);
+                if (!isNaN(prix)) {
+                    prixHtml = '<span class="fw-bold text-success">' + prix.toFixed(3) + '</span>';
+                }
+            }
+
+            var prixAvantHtml = '';
+            if (p.prix_avant) {
+                var prixAvant = parseFloat(p.prix_avant);
+                if (!isNaN(prixAvant)) {
+                    prixAvantHtml = '<span class="text-decoration-line-through text-danger">' + prixAvant.toFixed(3) + '</span>';
+                }
+            }
+
+            var pctHtml = p.pourcentage ? '<span class="badge bg-danger">' + p.pourcentage + '%</span>' : '';
+            var rowNum = $('#productTableBody tr').length + 1;
+
+            return $('<tr id="prod-row-' + p.id + '">').html(
+                '<td><input type="checkbox" name="selected_products" value="' + p.id + '"></td>' +
+                '<td>' + rowNum + '</td>' +
+                '<td>' + imgHtml + '</td>' +
+                '<td>' + escHtml(p.nom_fr) + '</td>' +
+                '<td>' + escHtml(p.nom_ar) + '</td>' +
+                '<td>' + escHtml(p.marque) + '</td>' +
+                '<td>' + prixHtml + '</td>' +
+                '<td>' + prixAvantHtml + '</td>' +
+                '<td>' + pctHtml + '</td>' +
+                '<td>' + escHtml(p.description) + '</td>' +
+                '<td>' + escHtml(p.description_2) + '</td>' +
+                '<td>' + escHtml(p.description_3) + '</td>' +
+                '<td><a href="/product/edit/' + p.id + '/" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a></td>'
+            );
+        }
+        
+        // Mettre à jour les badges
+        function updateFilterBadges(count) {
+            if (count === undefined) {
+                count = $('#productTableBody tr:visible').length;
+            }
+            
+            $('#pendingBadge').text(count + ' produits en attente');
+            $('.card-header .badge.bg-warning').text(count + ' produits en attente');
+            $('#totalPendingBadge').text(count + ' produit(s) en attente');
+            
+            if (count === 0) {
+                $('#productSection').hide();
+                $('#noProductsMessage').show();
+                $('#addProductBtn').hide();
+                $('#filterSection').hide();
+            } else {
+                $('#productSection').show();
+                $('#noProductsMessage').hide();
+                $('#addProductBtn').show();
+                $('#filterSection').show();
+            }
+        }
+
+        // Supprimer par marque
+        function deleteByMarque() {
+            var searchTerm = $('#marqueSearchInput').val().trim();
+            
+            if (!searchTerm) {
+                alert('❌ Veuillez saisir une marque à supprimer.');
+                debugLog('❌ Tentative de suppression sans marque', 'error');
+                return;
+            }
+            
+            debugLog('🗑️ Suppression par marque: "' + searchTerm + '"', 'info');
+            
+            // Compter les produits visibles
+            var visibleRows = $('#productTableBody tr:visible');
+            var visibleCount = visibleRows.length;
+            
+            if (visibleCount === 0) {
+                alert('⚠️ Aucun produit visible pour la marque "' + searchTerm + '" à supprimer.');
+                debugLog('⚠️ Aucun produit visible pour "' + searchTerm + '"', 'error');
+                return;
+            }
+            
+            // Vérifier la marque exacte du premier produit visible
+            var firstMarque = visibleRows.first().find('td:eq(5)').text().trim();
+            
+            if (!confirm('⚠️ Êtes-vous sûr de vouloir supprimer tous les produits de la marque "' + firstMarque + '" ?\n\n' + visibleCount + ' produit(s) seront supprimés. Cette action est irréversible.')) {
+                debugLog('❌ Suppression annulée par l\'utilisateur', 'info');
+                return;
+            }
+            
+            // Désactiver le bouton
+            var btn = $('#deleteByMarqueBtn');
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Suppression...');
+            debugLog('⏳ Envoi de la requête de suppression...', 'info');
+            
+            $.ajax({
+                url: "{% url 'delete_by_marque' %}",
+                method: 'POST',
+                contentType: 'application/json',
+                headers: {
+                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').first().val()
+                },
+                data: JSON.stringify({
+                    marque: firstMarque
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        debugLog('✅ ' + response.count + ' produits supprimés. Restants: ' + response.restants, 'success');
+                        
+                        // Supprimer les lignes du tableau
+                        visibleRows.remove();
+                        
+                        // Mettre à jour les badges
+                        var remaining = $('#productTableBody tr').length;
+                        updateFilterBadges(remaining);
+                        
+                        if (remaining === 0) {
+                            $('#productSection').hide();
+                            $('#noProductsMessage').show();
+                            $('#filterSection').hide();
+                            $('#addProductBtn').hide();
+                        }
+                        
+                        alert('✅ ' + response.message);
+                        
+                        // Recharger la liste des marques
+                        chargerMarques();
+                    } else {
+                        debugLog('❌ Erreur: ' + response.error, 'error');
+                        alert('❌ Erreur: ' + response.error);
+                    }
+                },
+                error: function(xhr) {
+                    debugLog('❌ Erreur AJAX: ' + xhr.status + ' - ' + xhr.statusText, 'error');
+                    alert('❌ Erreur lors de la suppression. Veuillez réessayer.');
+                },
+                complete: function() {
+                    btn.prop('disabled', false).html('<i class="fas fa-trash"></i> Supprimer');
+                }
+            });
+        }
+        // Sauvegarder par marque
+        function saveByMarque() {
+            var searchTerm = $('#marqueSearchInput').val().trim();
+            
+            if (!searchTerm) {
+                alert('❌ Veuillez saisir une marque à sauvegarder.');
+                debugLog('❌ Tentative de sauvegarde sans marque', 'error');
+                return;
+            }
+            
+            debugLog('💾 Sauvegarde par marque: "' + searchTerm + '"', 'info');
+            
+            // Compter les produits visibles
+            var visibleRows = $('#productTableBody tr:visible');
+            var visibleCount = visibleRows.length;
+            
+            if (visibleCount === 0) {
+                alert('⚠️ Aucun produit visible pour la marque "' + searchTerm + '" à sauvegarder.');
+                debugLog('⚠️ Aucun produit visible pour "' + searchTerm + '"', 'error');
+                return;
+            }
+            
+            // Vérifier la marque exacte du premier produit visible
+            var firstMarque = visibleRows.first().find('td:eq(5)').text().trim();
+            
+            if (!confirm('💾 Êtes-vous sûr de vouloir sauvegarder tous les produits de la marque "' + firstMarque + '" ?\n\n' + visibleCount + ' produit(s) seront sauvegardés.')) {
+                debugLog('❌ Sauvegarde annulée par l\'utilisateur', 'info');
+                return;
+            }
+            
+            // Désactiver le bouton
+            var btn = $('#saveByMarqueBtn');
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+            debugLog('⏳ Envoi de la requête de sauvegarde...', 'info');
+            
+            $.ajax({
+                url: "{% url 'save_by_marque' %}",
+                method: 'POST',
+                contentType: 'application/json',
+                headers: {
+                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').first().val()
+                },
+                data: JSON.stringify({
+                    marque: firstMarque
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        debugLog('✅ ' + response.count + ' produits sauvegardés. Restants: ' + response.restants, 'success');
+                        
+                        // Supprimer les lignes du tableau
+                        visibleRows.remove();
+                        
+                        // Mettre à jour les badges
+                        var remaining = $('#productTableBody tr').length;
+                        updateFilterBadges(remaining);
+                        
+                        if (remaining === 0) {
+                            $('#productSection').hide();
+                            $('#noProductsMessage').show();
+                            $('#filterSection').hide();
+                            $('#addProductBtn').hide();
+                        }
+                        
+                        alert('✅ ' + response.message);
+                        
+                        // Recharger la liste des marques
+                        chargerMarques();
+                    } else {
+                        debugLog('❌ Erreur: ' + response.error, 'error');
+                        alert('❌ Erreur: ' + response.error);
+                    }
+                },
+                error: function(xhr) {
+                    debugLog('❌ Erreur AJAX: ' + xhr.status + ' - ' + xhr.statusText, 'error');
+                    alert('❌ Erreur lors de la sauvegarde. Veuillez réessayer.');
+                },
+                complete: function() {
+                    btn.prop('disabled', false).html('<i class="fas fa-save"></i>');
+                }
+            });
+        }
+        // Événements
+        $(document).on('input', '#marqueSearchInput', function() {
+            // Filtrer les suggestions en temps réel
+            var searchTerm = $(this).val().trim();
+            if (searchTerm.length > 0) {
+                var normalizedSearch = normalizeString(searchTerm);
+                var suggestions = allMarques.filter(function(m) {
+                    return normalizeString(m).indexOf(normalizedSearch) !== -1;
+                });
+                afficherSuggestions(suggestions);
+                debugLog('🔍 Suggestions pour "' + searchTerm + '": ' + suggestions.length + ' trouvées', 'info');
+            } else {
+                afficherSuggestions(allMarques);
+            }
+        });
+
+        $(document).on('keypress', '#marqueSearchInput', function(e) {
+            if (e.which === 13) { // Entrée
+                applyFilter();
+            }
+        });
+
+        $(document).on('click', '#applyFilterBtn', function() {
+            applyFilter();
+        });
+
+        $(document).on('click', '#resetFilterBtn', function() {
+            resetFilter();
+        });
+
+        $(document).on('click', '#deleteByMarqueBtn', function() {
+            deleteByMarque();
+        });
+
+        // 🔥 AJOUT DE L'EVENEMENT POUR LE BOUTON SAUVEGARDER PAR MARQUE
+        $(document).on('click', '#saveByMarqueBtn', function() {
+            saveByMarque();
+        });
+
+        // Initialiser le chargement des marques
+        chargerMarques();
+
+        // Surcharger updatePendingBadge
+        var originalUpdatePendingBadge = updatePendingBadge;
+        updatePendingBadge = function() {
+            var count = $('#productTableBody tr').length;
+            updateFilterBadges(count);
+            return count;
+        };
+
+        // Surcharger appendProductRow pour rafraîchir les marques
+        var originalAppendProductRow = appendProductRow;
+        appendProductRow = function(p) {
+            originalAppendProductRow(p);
+            // Recharger les marques après un certain délai
+            setTimeout(function() {
+                chargerMarques();
+            }, 500);
+            debugLog('🔄 Produit ajouté, rechargement des marques...', 'info');
+        };       
 });
 </script>
 {% endblock %}
