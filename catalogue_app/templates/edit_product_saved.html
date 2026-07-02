@@ -1,0 +1,279 @@
+<!-- catalogue_app/templates/edit_product_saved.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<h2>✏️ Édition du produit sauvegardé</h2>
+
+<!-- Image du produit -->
+{% if produit.image_produit %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h5>🖼️ Image du produit</h5>
+    </div>
+    <div class="card-body text-center">
+        <img src="{{ produit.image_produit.url }}" alt="{{ produit.nom }}" 
+             class="img-fluid" style="max-height: 300px; object-fit: contain;">
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body">
+        <form method="post" id="editProductForm">
+            {% csrf_token %}
+            
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.nom_fr.id_for_label }}" class="form-label">Nom (FR)</label>
+                        {{ form.nom_fr }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.nom_ar.id_for_label }}" class="form-label">Nom (AR)</label>
+                        {{ form.nom_ar }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.marque.id_for_label }}" class="form-label">Marque</label>
+                        {{ form.marque }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.prix.id_for_label }}" class="form-label">Prix (DT)</label>
+                        {{ form.prix }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.prix_avant.id_for_label }}" class="form-label">Prix avant (DT)</label>
+                        {{ form.prix_avant }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.pourcentage.id_for_label }}" class="form-label">Pourcentage (%)</label>
+                        {{ form.pourcentage }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="{{ form.remise.id_for_label }}" class="form-label">Remise (DT)</label>
+                        {{ form.remise }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label class="form-label">Action</label>
+                        <button type="button" class="btn btn-success w-100" id="calculateBtn">
+                            <i class="fas fa-calculator"></i> Appliquer le calcul
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Résultat du calcul -->
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="mb-3">
+                        <label class="form-label">📊 Résultat du calcul</label>
+                        <div id="resultDisplay" class="p-2 border rounded bg-light text-center">
+                            <span class="text-muted">Modifiez les valeurs et cliquez sur "Appliquer le calcul"</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+                        {{ form.description }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.description_2.id_for_label }}" class="form-label">Description 2</label>
+                        {{ form.description_2 }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.description_3.id_for_label }}" class="form-label">Description 3</label>
+                        {{ form.description_3 }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- 🆕 Descriptions supplémentaires saisies manuellement par l'utilisateur -->
+            <div class="row">
+                <div class="col-md-12">
+                    <hr>
+                    <label class="form-label fw-bold text-primary">
+                        <i class="fas fa-pen"></i> Descriptions supplémentaires (ajoutées manuellement)
+                    </label>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.description_user_1.id_for_label }}" class="form-label">Description supplémentaire 1</label>
+                        {{ form.description_user_1 }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.description_user_2.id_for_label }}" class="form-label">Description supplémentaire 2</label>
+                        {{ form.description_user_2 }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-save"></i> Enregistrer
+                </button>
+                <a href="{% url 'product_list' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Retour à la liste
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+
+    function parseNumOrNull(rawVal) {
+        let v = (rawVal || '').toString().trim();
+        if (v === '') return null;
+        let n = parseFloat(v.replace(',', '.'));
+        return isNaN(n) ? null : n;
+    }
+
+    // Fonction qui APPLIQUE les calculs - RÈGLE D'OR : ne JAMAIS écraser un champ déjà rempli.
+    // On ne calcule QUE les champs vides, à partir des champs déjà renseignés.
+    function applyCalculation() {
+        let prix = parseNumOrNull($('#id_prix').val());
+        let prixAvant = parseNumOrNull($('#id_prix_avant').val());
+        let pourcentage = parseNumOrNull($('#id_pourcentage').val());
+        let remise = parseNumOrNull($('#id_remise').val());
+
+        let prixVide = prix === null;
+        let prixAvantVide = prixAvant === null;
+        let pourcentageVide = pourcentage === null;
+        let remiseVide = remise === null;
+
+        let result = '';
+        let changes = false;
+
+        // Cas 0 : tout est déjà rempli -> ON NE TOUCHE À RIEN (évite d'écraser des valeurs correctes,
+        // ex: le -44% imprimé sur l'affiche, qui peut légèrement différer du calcul exact prix/prix_avant)
+        if (!prixVide && !prixAvantVide && !pourcentageVide && !remiseVide) {
+            result = 'ℹ️ Tous les champs sont déjà remplis, rien n\'a été recalculé. Videz un champ pour le recalculer automatiquement.';
+        }
+        // Cas 1 : prix vide, mais prix_avant + pourcentage connus -> calculer le prix
+        else if (prixVide && !prixAvantVide && !pourcentageVide && pourcentage > 0 && pourcentage <= 100) {
+            let newPrix = prixAvant * (1 - pourcentage / 100);
+            $('#id_prix').val(newPrix.toFixed(3));
+            changes = true;
+            result = `💰 Prix calculé : ${newPrix.toFixed(3)} DT`;
+            if (remiseVide) {
+                let newRemise = prixAvant - newPrix;
+                $('#id_remise').val(newRemise.toFixed(3));
+                result += ` | Remise : ${newRemise.toFixed(3)} DT`;
+            }
+        }
+        // Cas 2 : prix_avant vide, mais prix + pourcentage connus -> calculer prix_avant
+        else if (prixAvantVide && !prixVide && !pourcentageVide && pourcentage > 0 && pourcentage <= 100) {
+            let newPrixAvant = prix / (1 - pourcentage / 100);
+            $('#id_prix_avant').val(newPrixAvant.toFixed(3));
+            changes = true;
+            result = `💰 Prix avant calculé : ${newPrixAvant.toFixed(3)} DT`;
+            if (remiseVide) {
+                let newRemise = newPrixAvant - prix;
+                $('#id_remise').val(newRemise.toFixed(3));
+                result += ` | Remise : ${newRemise.toFixed(3)} DT`;
+            }
+        }
+        // Cas 3 : pourcentage vide, mais prix + prix_avant connus -> calculer le pourcentage
+        else if (pourcentageVide && !prixVide && !prixAvantVide) {
+            if (prix < prixAvant) {
+                let newPourcentage = ((prixAvant - prix) / prixAvant) * 100;
+                $('#id_pourcentage').val(newPourcentage.toFixed(0));
+                changes = true;
+                result = `📊 Pourcentage calculé : ${newPourcentage.toFixed(0)}%`;
+                if (remiseVide) {
+                    let newRemise = prixAvant - prix;
+                    $('#id_remise').val(newRemise.toFixed(3));
+                    result += ` | Remise : ${newRemise.toFixed(3)} DT`;
+                }
+            } else {
+                result = '⚠️ Le prix doit être inférieur au prix avant';
+            }
+        }
+        // Cas 4 : remise vide, mais prix + prix_avant connus -> calculer la remise
+        else if (remiseVide && !prixVide && !prixAvantVide) {
+            let newRemise = prixAvant - prix;
+            $('#id_remise').val(newRemise.toFixed(3));
+            changes = true;
+            result = `💰 Remise calculée : ${newRemise.toFixed(3)} DT`;
+            if (pourcentageVide && prixAvant > 0) {
+                let newPourcentage = (newRemise / prixAvant) * 100;
+                $('#id_pourcentage').val(newPourcentage.toFixed(0));
+                result += ` | %: ${newPourcentage.toFixed(0)}%`;
+            }
+        }
+        // Cas 5 : remise vide, mais prix + pourcentage connus -> calculer remise (+ prix_avant si vide, déjà couvert cas 2)
+        else if (remiseVide && !prixVide && !pourcentageVide && pourcentage > 0 && pourcentage <= 100) {
+            let calcPrixAvant = prixAvantVide ? (prix / (1 - pourcentage / 100)) : prixAvant;
+            let newRemise = calcPrixAvant - prix;
+            $('#id_remise').val(newRemise.toFixed(3));
+            changes = true;
+            result = `💰 Remise calculée : ${newRemise.toFixed(3)} DT`;
+        }
+        // Cas 6 : pas assez de données pour calculer quoi que ce soit
+        else {
+            result = 'Remplissez au moins 2 champs parmi Prix, Prix avant et Pourcentage pour calculer le reste.';
+        }
+
+        // Afficher le résultat
+        if (changes) {
+            $('#resultDisplay').html(`
+                <span class="text-success">✅ Champs mis à jour !</span>
+                <br><small class="text-muted">${result}</small>
+            `);
+        } else if (result) {
+            $('#resultDisplay').html(`
+                <span class="text-warning">⚠️ ${result}</span>
+            `);
+        } else {
+            $('#resultDisplay').html(`
+                <span class="text-muted">Modifiez les valeurs et cliquez sur "Appliquer le calcul"</span>
+            `);
+        }
+    }
+
+    // Bouton "Appliquer le calcul" - remplit uniquement les champs vides
+    $('#calculateBtn').click(function() {
+        applyCalculation();
+    });
+});
+</script>
+{% endblock %}

@@ -4,6 +4,20 @@
 {% block content %}
 <h2>Dernier catalogue sauvegardé</h2>
 
+<!-- 🔥 Boutons de navigation -->
+<div class="mb-3">
+    <a href="{% url 'upload' %}" class="btn btn-primary">
+        <i class="fas fa-upload"></i> Uploader un nouveau catalogue
+    </a>
+    <a href="{% url 'product_list' %}" class="btn btn-secondary">
+        <i class="fas fa-sync"></i> Rafraîchir
+    </a>
+    <!-- 🔥 NOUVEAU : Bouton Export Excel -->
+    <a href="{% url 'export_products_excel' %}" class="btn btn-success">
+        <i class="fas fa-file-excel"></i> Exporter en Excel
+    </a>
+</div>
+
 {% if catalogue and has_products %}
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">
@@ -25,7 +39,7 @@
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                <table class="table table-striped table-hover" id="productTable">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -58,21 +72,9 @@
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
-                            <td>
-                                {% if produit.nom_fr %}
-                                    {{ produit.nom_fr }}
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if produit.nom_ar %}
-                                    {{ produit.nom_ar }}
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if produit.marque %}
-                                    {{ produit.marque }}
-                                {% endif %}
-                            </td>
+                            <td>{{ produit.nom_fr|default:'' }}</td>
+                            <td>{{ produit.nom_ar|default:'' }}</td>
+                            <td>{{ produit.marque|default:'' }}</td>
                             <td>
                                 {% if produit.prix %}
                                     <span class="fw-bold text-success">{{ produit.prix }}</span>
@@ -88,35 +90,23 @@
                                     <span class="badge bg-danger">{{ produit.pourcentage|floatformat:0 }}%</span>
                                 {% endif %}
                             </td>
+                            <td>{{ produit.description|default:''|truncatechars:40 }}</td>
+                            <td>{{ produit.description_2|default:''|truncatechars:30 }}</td>
+                            <td>{{ produit.description_3|default:''|truncatechars:30 }}</td>
+                            <td>{{ produit.description_user_1|default:''|truncatechars:30 }}</td>
+                            <td>{{ produit.description_user_2|default:''|truncatechars:30 }}</td>
                             <td>
-                                {% if produit.description %}
-                                    {{ produit.description|truncatechars:40 }}
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if produit.description_2 %}
-                                    {{ produit.description_2|truncatechars:30 }}
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if produit.description_3 %}
-                                    {{ produit.description_3|truncatechars:30 }}
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if produit.description_user_1 %}
-                                    {{ produit.description_user_1|truncatechars:30 }}
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if produit.description_user_2 %}
-                                    {{ produit.description_user_2|truncatechars:30 }}
-                                {% endif %}
-                            </td>
-                            <td>
-                                <a href="/product/edit/{{ produit.id }}/" class="btn btn-sm btn-warning">
-                                    <i class="fas fa-edit"></i>
-                                </a>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{% url 'edit_product_saved' produit.id %}" class="btn btn-warning" title="Éditer">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-danger delete-product-btn" 
+                                            data-product-id="{{ produit.id }}" 
+                                            data-product-name="{{ produit.nom|default:produit.nom_fr|default:'ce produit' }}"
+                                            title="Supprimer">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -124,13 +114,6 @@
                 </table>
             </div>
         </div>
-    </div>
-    
-    <!-- Lien pour uploader un nouveau catalogue -->
-    <div class="text-center mt-3">
-        <a href="{% url 'upload' %}" class="btn btn-primary">
-            <i class="fas fa-upload"></i> Uploader un nouveau catalogue
-        </a>
     </div>
 {% else %}
     <div class="alert alert-info">
@@ -144,4 +127,51 @@
         </div>
     </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // 🔥 Suppression d'un produit
+    $('.delete-product-btn').click(function() {
+        var productId = $(this).data('product-id');
+        var productName = $(this).data('product-name') || 'ce produit';
+        var row = $(this).closest('tr');
+        
+        if (confirm(`⚠️ Êtes-vous sûr de vouloir supprimer le produit "${productName}" ?\n\nCette action est irréversible.`)) {
+            var btn = $(this);
+            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+            
+            $.ajax({
+                url: '/product/delete/' + productId + '/',
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        row.fadeOut(400, function() {
+                            $(this).remove();
+                            // Recompter les lignes
+                            $('tbody tr').each(function(index) {
+                                $(this).find('td:first').text(index + 1);
+                            });
+                            if ($('tbody tr').length === 0) {
+                                location.reload();
+                            }
+                        });
+                    } else {
+                        alert('❌ Erreur: ' + response.error);
+                        btn.prop('disabled', false).html('<i class="fas fa-trash"></i>');
+                    }
+                },
+                error: function() {
+                    alert('❌ Erreur lors de la suppression');
+                    btn.prop('disabled', false).html('<i class="fas fa-trash"></i>');
+                }
+            });
+        }
+    });
+});
+</script>
 {% endblock %}

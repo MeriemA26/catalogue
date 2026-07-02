@@ -20,4 +20,7 @@ urlpatterns = [
     path('api/marques/', views.get_marques_list, name='get_marques_list'),
     path('api/delete-by-marque/', views.delete_by_marque, name='delete_by_marque'),
     path('api/save-by-marque/', views.save_by_marque, name='save_by_marque'),
+    path('product/edit_saved/<int:product_id>/', views.edit_product_saved, name='edit_product_saved'),
+    path('product/delete/<int:product_id>/', views.delete_saved_product, name='delete_saved_product'),
+    path('product/export/excel/', views.export_products_excel, name='export_products_excel'),
 ]

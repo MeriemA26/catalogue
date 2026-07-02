@@ -19,6 +19,9 @@ import time
 from .models import Enseigne, Catalogue, Produit
 from .forms import UploadForm, ProduitForm
 from .utils import OCRProcessor
+import openpyxl
+from openpyxl.styles import Font, Alignment, Border, Side
+from django.http import HttpResponse
 
 # Configuration du logging - Désactiver complètement
 logging.disable(logging.CRITICAL)
@@ -1391,3 +1394,219 @@ def save_by_marque(request):
             return JsonResponse({'success': False, 'error': str(e)})
     
     return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
+
+# catalogue_app/views.py - Ajouter cette fonction
+
+def edit_product_saved(request, product_id):
+    """Éditer un produit sauvegardé (redirige vers product_list après sauvegarde)"""
+    produit = get_object_or_404(Produit, id=product_id)
+    
+    if request.method == 'POST':
+        form = ProduitForm(request.POST, instance=produit)
+        if form.is_valid():
+            try:
+                # 🔥 Récupérer les valeurs du formulaire (AVANT sauvegarde)
+                prix = form.cleaned_data.get('prix')
+                prix_avant = form.cleaned_data.get('prix_avant')
+                pourcentage = form.cleaned_data.get('pourcentage')
+                remise = form.cleaned_data.get('remise')
+                
+                # 🔥 Sauvegarder le formulaire (mais pas encore en DB)
+                produit = form.save(commit=False)
+                
+                # 🔥 Logique de calcul MAIS seulement si les valeurs sont manquantes
+                # 1. Si prix et prix_avant sont fournis
+                if prix is not None and prix_avant is not None and prix_avant > 0:
+                    if prix < prix_avant:
+                        # Ne calculer que si pourcentage est None ou 0
+                        if pourcentage is None or pourcentage == 0:
+                            produit.pourcentage = ((prix_avant - prix) / prix_avant) * 100
+                        # Ne calculer que si remise est None ou 0
+                        if remise is None or remise == 0:
+                            produit.remise = prix_avant - prix
+                    else:
+                        produit.remise = None
+                        produit.pourcentage = None
+                
+                # 2. Si prix et pourcentage sont fournis (et pas prix_avant)
+                elif prix is not None and pourcentage is not None and pourcentage > 0 and pourcentage <= 100:
+                    if prix_avant is None:
+                        produit.prix_avant = prix / (1 - pourcentage / 100)
+                        produit.remise = produit.prix_avant - prix
+                
+                # 3. Si prix_avant et pourcentage sont fournis (et pas prix)
+                elif prix_avant is not None and pourcentage is not None and pourcentage > 0 and pourcentage <= 100:
+                    if prix is None:
+                        produit.prix = prix_avant * (1 - pourcentage / 100)
+                        produit.remise = prix_avant - produit.prix
+                
+                # 4. Si prix et remise sont fournis
+                elif prix is not None and remise is not None and remise > 0:
+                    if prix_avant is None:
+                        produit.prix_avant = prix + remise
+                        produit.pourcentage = (remise / produit.prix_avant) * 100
+                
+                # Sauvegarder les modifications
+                produit.save()
+                
+                messages.success(request, 'Produit mis à jour avec succès !')
+                return redirect('product_list')  # 🔥 SEULE DIFFÉRENCE : redirection vers product_list
+                
+            except Exception as e:
+                messages.error(request, f"Erreur lors de la mise à jour: {str(e)}")
+        else:
+            messages.error(request, "Le formulaire contient des erreurs.")
+    else:
+        form = ProduitForm(instance=produit)
+    
+    context = {
+        'form': form,
+        'produit': produit,
+    }
+    return render(request, 'edit_product_saved.html', context)
+
+@csrf_exempt
+def delete_saved_product(request, product_id):
+    """Supprimer un produit sauvegardé"""
+    if request.method == 'POST':
+        try:
+            produit = get_object_or_404(Produit, id=product_id)
+            
+            # Supprimer l'image associée
+            if produit.image_produit:
+                try:
+                    image_path = os.path.join(settings.MEDIA_ROOT, str(produit.image_produit))
+                    if os.path.exists(image_path):
+                        os.remove(image_path)
+                except:
+                    pass
+            
+            produit.delete()
+            return JsonResponse({'success': True, 'message': 'Produit supprimé avec succès'})
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
+
+def export_products_excel(request):
+    """Exporter les produits du dernier catalogue sauvegardé en fichier Excel"""
+    
+    # 🔥 Récupérer le dernier catalogue QUI A DES PRODUITS SAUVEGARDÉS
+    dernier_catalogue = None
+    
+    for catalogue in Catalogue.objects.order_by('-date_upload'):
+        produits_sauvegardes = catalogue.produits.filter(est_sauvegarde=True)
+        if produits_sauvegardes.exists():
+            dernier_catalogue = catalogue
+            produits = produits_sauvegardes
+            break
+    
+    if not dernier_catalogue:
+        messages.warning(request, "Aucun catalogue sauvegardé à exporter.")
+        return redirect('product_list')
+    
+    # Créer le fichier Excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f"Produits - {dernier_catalogue.enseigne.nom}"
+    
+    # 🔥 En-têtes avec les informations du catalogue
+    headers = [
+        "#", "Nom (FR)", "Nom (AR)", "Marque", 
+        "Prix (DT)", "Prix avant (DT)", "Pourcentage (%)", "Remise (DT)",
+        "Description", "Description 2", "Description 3",
+        "Description suppl. 1", "Description suppl. 2"
+    ]
+    
+    # 🔥 Style pour les en-têtes
+    header_font = Font(bold=True, color="FFFFFF")
+    header_fill = openpyxl.styles.PatternFill(start_color="0073E6", end_color="0073E6", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # Écrire les en-têtes
+    for col_idx, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = border
+    
+    # 🔥 Écrire les données
+    for row_idx, produit in enumerate(produits, 2):
+        ws.cell(row=row_idx, column=1, value=row_idx - 1)  # Numéro de ligne
+        ws.cell(row=row_idx, column=2, value=produit.nom_fr or '')
+        ws.cell(row=row_idx, column=3, value=produit.nom_ar or '')
+        ws.cell(row=row_idx, column=4, value=produit.marque or '')
+        ws.cell(row=row_idx, column=5, value=float(produit.prix) if produit.prix else None)
+        ws.cell(row=row_idx, column=6, value=float(produit.prix_avant) if produit.prix_avant else None)
+        ws.cell(row=row_idx, column=7, value=float(produit.pourcentage) if produit.pourcentage else None)
+        ws.cell(row=row_idx, column=8, value=float(produit.remise) if produit.remise else None)
+        ws.cell(row=row_idx, column=9, value=produit.description or '')
+        ws.cell(row=row_idx, column=10, value=produit.description_2 or '')
+        ws.cell(row=row_idx, column=11, value=produit.description_3 or '')
+        ws.cell(row=row_idx, column=12, value=produit.description_user_1 or '')
+        ws.cell(row=row_idx, column=13, value=produit.description_user_2 or '')
+        
+        # 🔥 Appliquer le style aux cellules
+        for col in range(1, len(headers) + 1):
+            cell = ws.cell(row=row_idx, column=col)
+            cell.border = border
+            if col in [5, 6, 7, 8]:  # Colonnes numériques
+                cell.number_format = '#,##0.000'
+                cell.alignment = Alignment(horizontal="right")
+            else:
+                cell.alignment = Alignment(horizontal="left", wrap_text=True)
+    
+    # 🔥 Ajuster la largeur des colonnes
+    column_widths = {
+        'A': 8, 'B': 30, 'C': 30, 'D': 25,
+        'E': 15, 'F': 15, 'G': 15, 'H': 15,
+        'I': 35, 'J': 35, 'K': 35, 'L': 35, 'M': 35
+    }
+    for col_letter, width in column_widths.items():
+        ws.column_dimensions[col_letter].width = width
+    
+    # 🔥 Ajouter une feuille avec les informations du catalogue
+    ws_info = wb.create_sheet("Informations catalogue")
+    info_data = [
+        ["Enseigne", dernier_catalogue.enseigne.nom if dernier_catalogue.enseigne else ""],
+        ["Date début", dernier_catalogue.date_debut.strftime('%d/%m/%Y') if dernier_catalogue.date_debut else ""],
+        ["Date fin", dernier_catalogue.date_fin.strftime('%d/%m/%Y') if dernier_catalogue.date_fin else ""],
+        ["Date upload", dernier_catalogue.date_upload.strftime('%d/%m/%Y %H:%M') if dernier_catalogue.date_upload else ""],
+        ["Nombre de produits", produits.count()],
+    ]
+    
+    for row_idx, (label, value) in enumerate(info_data, 1):
+        ws_info.cell(row=row_idx, column=1, value=label)
+        ws_info.cell(row=row_idx, column=1).font = Font(bold=True)
+        ws_info.cell(row=row_idx, column=2, value=value)
+    
+    ws_info.column_dimensions['A'].width = 20
+    ws_info.column_dimensions['B'].width = 30
+    
+    # 🔥 Ligne de total sur la feuille principale
+    total_row = len(produits) + 2
+    ws.cell(row=total_row, column=1, value="TOTAL")
+    ws.cell(row=total_row, column=1).font = Font(bold=True)
+    ws.cell(row=total_row, column=5, value=f"=SUM(E2:E{total_row-1})")
+    ws.cell(row=total_row, column=6, value=f"=SUM(F2:F{total_row-1})")
+    ws.cell(row=total_row, column=8, value=f"=SUM(H2:H{total_row-1})")
+    
+    # 🔥 Créer le nom du fichier avec les infos du catalogue
+    filename = f"produits_{dernier_catalogue.enseigne.nom}_{dernier_catalogue.date_debut.strftime('%Y%m%d')}.xlsx"
+    
+    # 🔥 Créer la réponse HTTP avec le fichier Excel
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    wb.save(response)
+    return response
