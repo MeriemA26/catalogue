@@ -39,6 +39,9 @@
                             <th>Description</th>
                             <th>Description 2</th>
                             <th>Description 3</th>
+                            <th>Description suppl. 1</th>
+                            <th>Description suppl. 2</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -99,6 +102,21 @@
                                 {% if produit.description_3 %}
                                     {{ produit.description_3|truncatechars:30 }}
                                 {% endif %}
+                            </td>
+                            <td>
+                                {% if produit.description_user_1 %}
+                                    {{ produit.description_user_1|truncatechars:30 }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if produit.description_user_2 %}
+                                    {{ produit.description_user_2|truncatechars:30 }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="/product/edit/{{ produit.id }}/" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-edit"></i>
+                                </a>
                             </td>
                         </tr>
                         {% endfor %}

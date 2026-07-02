@@ -118,9 +118,33 @@
                 </div>
             </div>
 
+            <!-- 🆕 Descriptions supplémentaires saisies manuellement par l'utilisateur -->
+            <div class="row">
+                <div class="col-md-12">
+                    <hr>
+                    <label class="form-label fw-bold text-primary">
+                        <i class="fas fa-pen"></i> Descriptions supplémentaires (ajoutées manuellement)
+                    </label>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.description_user_1.id_for_label }}" class="form-label">Description supplémentaire 1</label>
+                        {{ form.description_user_1 }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="{{ form.description_user_2.id_for_label }}" class="form-label">Description supplémentaire 2</label>
+                        {{ form.description_user_2 }}
+                    </div>
+                </div>
+            </div>
+
             <div class="btn-group">
                 <button type="submit" class="btn btn-success">
-                    <i class="fas fa-save"></i> Enregistrer et calculer
+                    <i class="fas fa-save"></i> Enregistrer
                 </button>
                 <a href="{% url 'upload' %}" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Retour
@@ -135,66 +159,100 @@
 {% block scripts %}
 <script>
 $(document).ready(function() {
-    // Fonction qui APPLIQUE les calculs directement dans les champs
+
+    function parseNumOrNull(rawVal) {
+        let v = (rawVal || '').toString().trim();
+        if (v === '') return null;
+        let n = parseFloat(v.replace(',', '.'));
+        return isNaN(n) ? null : n;
+    }
+
+    // Fonction qui APPLIQUE les calculs - RÈGLE D'OR : ne JAMAIS écraser un champ déjà rempli.
+    // On ne calcule QUE les champs vides, à partir des champs déjà renseignés.
     function applyCalculation() {
-        // Récupérer les valeurs
-        let prix = parseFloat($('#id_prix').val().replace(',', '.')) || null;
-        let prixAvant = parseFloat($('#id_prix_avant').val().replace(',', '.')) || null;
-        let pourcentage = parseFloat($('#id_pourcentage').val()) || null;
-        let remise = parseFloat($('#id_remise').val().replace(',', '.')) || null;
-        
+        let prix = parseNumOrNull($('#id_prix').val());
+        let prixAvant = parseNumOrNull($('#id_prix_avant').val());
+        let pourcentage = parseNumOrNull($('#id_pourcentage').val());
+        let remise = parseNumOrNull($('#id_remise').val());
+
+        let prixVide = prix === null;
+        let prixAvantVide = prixAvant === null;
+        let pourcentageVide = pourcentage === null;
+        let remiseVide = remise === null;
+
         let result = '';
         let changes = false;
-        
-        // 1. Si prix et prix_avant -> remise et pourcentage
-        if (prix !== null && prixAvant !== null && prixAvant > 0) {
-            if (prix < prixAvant) {
-                let newRemise = prixAvant - prix;
-                let newPourcentage = (newRemise / prixAvant) * 100;
-                
+
+        // Cas 0 : tout est déjà rempli -> ON NE TOUCHE À RIEN (évite d'écraser des valeurs correctes,
+        // ex: le -44% imprimé sur l'affiche, qui peut légèrement différer du calcul exact prix/prix_avant)
+        if (!prixVide && !prixAvantVide && !pourcentageVide && !remiseVide) {
+            result = 'ℹ️ Tous les champs sont déjà remplis, rien n\'a été recalculé. Videz un champ pour le recalculer automatiquement.';
+        }
+        // Cas 1 : prix vide, mais prix_avant + pourcentage connus -> calculer le prix
+        else if (prixVide && !prixAvantVide && !pourcentageVide && pourcentage > 0 && pourcentage <= 100) {
+            let newPrix = prixAvant * (1 - pourcentage / 100);
+            $('#id_prix').val(newPrix.toFixed(3));
+            changes = true;
+            result = `💰 Prix calculé : ${newPrix.toFixed(3)} DT`;
+            if (remiseVide) {
+                let newRemise = prixAvant - newPrix;
                 $('#id_remise').val(newRemise.toFixed(3));
-                $('#id_pourcentage').val(newPourcentage.toFixed(1));
-                changes = true;
-                result = `💰 Remise: ${newRemise.toFixed(3)} DT | 📊 %: ${newPourcentage.toFixed(1)}%`;
-            } else {
-                result = `⚠️ Le prix doit être inférieur au prix avant`;
+                result += ` | Remise : ${newRemise.toFixed(3)} DT`;
             }
         }
-        // 2. Si prix et pourcentage -> prix_avant
-        else if (prix !== null && pourcentage !== null && pourcentage > 0 && pourcentage <= 100) {
+        // Cas 2 : prix_avant vide, mais prix + pourcentage connus -> calculer prix_avant
+        else if (prixAvantVide && !prixVide && !pourcentageVide && pourcentage > 0 && pourcentage <= 100) {
             let newPrixAvant = prix / (1 - pourcentage / 100);
-            let newRemise = newPrixAvant - prix;
-            
             $('#id_prix_avant').val(newPrixAvant.toFixed(3));
+            changes = true;
+            result = `💰 Prix avant calculé : ${newPrixAvant.toFixed(3)} DT`;
+            if (remiseVide) {
+                let newRemise = newPrixAvant - prix;
+                $('#id_remise').val(newRemise.toFixed(3));
+                result += ` | Remise : ${newRemise.toFixed(3)} DT`;
+            }
+        }
+        // Cas 3 : pourcentage vide, mais prix + prix_avant connus -> calculer le pourcentage
+        else if (pourcentageVide && !prixVide && !prixAvantVide) {
+            if (prix < prixAvant) {
+                let newPourcentage = ((prixAvant - prix) / prixAvant) * 100;
+                $('#id_pourcentage').val(newPourcentage.toFixed(0));
+                changes = true;
+                result = `📊 Pourcentage calculé : ${newPourcentage.toFixed(0)}%`;
+                if (remiseVide) {
+                    let newRemise = prixAvant - prix;
+                    $('#id_remise').val(newRemise.toFixed(3));
+                    result += ` | Remise : ${newRemise.toFixed(3)} DT`;
+                }
+            } else {
+                result = '⚠️ Le prix doit être inférieur au prix avant';
+            }
+        }
+        // Cas 4 : remise vide, mais prix + prix_avant connus -> calculer la remise
+        else if (remiseVide && !prixVide && !prixAvantVide) {
+            let newRemise = prixAvant - prix;
             $('#id_remise').val(newRemise.toFixed(3));
             changes = true;
-            result = `💰 Prix avant: ${newPrixAvant.toFixed(3)} DT | 💰 Remise: ${newRemise.toFixed(3)} DT`;
+            result = `💰 Remise calculée : ${newRemise.toFixed(3)} DT`;
+            if (pourcentageVide && prixAvant > 0) {
+                let newPourcentage = (newRemise / prixAvant) * 100;
+                $('#id_pourcentage').val(newPourcentage.toFixed(0));
+                result += ` | %: ${newPourcentage.toFixed(0)}%`;
+            }
         }
-        // 3. Si prix_avant et pourcentage -> prix
-        else if (prixAvant !== null && pourcentage !== null && pourcentage > 0 && pourcentage <= 100) {
-            let newPrix = prixAvant * (1 - pourcentage / 100);
-            let newRemise = prixAvant - newPrix;
-            
-            $('#id_prix').val(newPrix.toFixed(3));
+        // Cas 5 : remise vide, mais prix + pourcentage connus -> calculer remise (+ prix_avant si vide, déjà couvert cas 2)
+        else if (remiseVide && !prixVide && !pourcentageVide && pourcentage > 0 && pourcentage <= 100) {
+            let calcPrixAvant = prixAvantVide ? (prix / (1 - pourcentage / 100)) : prixAvant;
+            let newRemise = calcPrixAvant - prix;
             $('#id_remise').val(newRemise.toFixed(3));
             changes = true;
-            result = `💰 Prix: ${newPrix.toFixed(3)} DT | 💰 Remise: ${newRemise.toFixed(3)} DT`;
+            result = `💰 Remise calculée : ${newRemise.toFixed(3)} DT`;
         }
-        // 4. Si prix et remise -> prix_avant et pourcentage
-        else if (prix !== null && remise !== null && remise > 0) {
-            let newPrixAvant = prix + remise;
-            let newPourcentage = (remise / newPrixAvant) * 100;
-            
-            $('#id_prix_avant').val(newPrixAvant.toFixed(3));
-            $('#id_pourcentage').val(newPourcentage.toFixed(1));
-            changes = true;
-            result = `💰 Prix avant: ${newPrixAvant.toFixed(3)} DT | 📊 %: ${newPourcentage.toFixed(1)}%`;
-        }
-        // 5. Aucune donnée
+        // Cas 6 : pas assez de données pour calculer quoi que ce soit
         else {
-            result = 'Aucune donnée à calculer';
+            result = 'Remplissez au moins 2 champs parmi Prix, Prix avant et Pourcentage pour calculer le reste.';
         }
-        
+
         // Afficher le résultat
         if (changes) {
             $('#resultDisplay').html(`
@@ -212,7 +270,7 @@ $(document).ready(function() {
         }
     }
 
-    // Bouton "Appliquer le calcul" - remplit les champs
+    // Bouton "Appliquer le calcul" - remplit uniquement les champs vides
     $('#calculateBtn').click(function() {
         applyCalculation();
     });

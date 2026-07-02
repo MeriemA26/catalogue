@@ -43,6 +43,7 @@ class ProduitForm(forms.ModelForm):
             'nom', 'nom_fr', 'nom_ar', 'marque',
             'prix', 'prix_avant', 'pourcentage', 'remise',
             'description', 'description_2', 'description_3',
+            'description_user_1', 'description_user_2',
             'extrait_texte'
         ]
         widgets = {
@@ -57,6 +58,8 @@ class ProduitForm(forms.ModelForm):
             'description': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Description'}),
             'description_2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Description 2'}),
             'description_3': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Description 3'}),
+            'description_user_1': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Description supplémentaire ajoutée par vous'}),
+            'description_user_2': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Description supplémentaire ajoutée par vous'}),
             'extrait_texte': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Texte extrait par OCR'}),
         }
         labels = {
@@ -71,6 +74,8 @@ class ProduitForm(forms.ModelForm):
             'description': 'Description',
             'description_2': 'Description 2',
             'description_3': 'Description 3',
+            'description_user_1': 'Description supplémentaire 1',
+            'description_user_2': 'Description supplémentaire 2',
             'extrait_texte': 'Texte extrait',
         }
     
@@ -82,12 +87,13 @@ class ProduitForm(forms.ModelForm):
         remise = cleaned_data.get('remise')
         
         # 🔥 Logique de validation et calcul
-        # 1. Si remise est directement fournie, on la garde
+        # 1. Si remise est fournie mais prix_avant est vide -> le déduire (sans écraser une valeur déjà saisie)
         if remise and remise > 0:
-            if prix is not None and prix > 0:
+            if prix is not None and prix > 0 and prix_avant is None:
                 cleaned_data['prix_avant'] = prix + remise
+                prix_avant = cleaned_data['prix_avant']
                 if pourcentage is None:
-                    cleaned_data['pourcentage'] = (remise / (prix + remise)) * 100
+                    cleaned_data['pourcentage'] = round((remise / (prix + remise)) * 100)
         
         # 2. Validation prix vs prix_avant
         if prix is not None and prix_avant is not None:
@@ -96,7 +102,7 @@ class ProduitForm(forms.ModelForm):
                     "Le prix doit être inférieur au prix avant remise (prix < prix_avant)"
                 )
             if pourcentage is None:
-                cleaned_data['pourcentage'] = ((prix_avant - prix) / prix_avant) * 100
+                cleaned_data['pourcentage'] = round(((prix_avant - prix) / prix_avant) * 100)
             if remise is None:
                 cleaned_data['remise'] = prix_avant - prix
         

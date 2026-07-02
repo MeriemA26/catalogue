@@ -61,10 +61,14 @@ class Produit(models.Model):
     marque = models.CharField(max_length=255, blank=True, null=True, verbose_name="Marque")
     prix = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, verbose_name="Prix (TND)")
     prix_avant = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, verbose_name="Prix avant (TND)")
-    pourcentage = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name="%")
+    pourcentage = models.DecimalField(max_digits=5, decimal_places=0, null=True, blank=True, verbose_name="%")
     description = models.TextField(blank=True, null=True, verbose_name="Description")
     description_2 = models.TextField(blank=True, null=True, verbose_name="Description 2")
     description_3 = models.TextField(blank=True, null=True, verbose_name="Description 3")
+
+    # 🆕 Champs de description manuelle (saisis par l'utilisateur, pas extraits par les modèles)
+    description_user_1 = models.TextField(blank=True, null=True, verbose_name="Description supplémentaire 1")
+    description_user_2 = models.TextField(blank=True, null=True, verbose_name="Description supplémentaire 2")
     
     # Champs supplémentaires
     remise = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, verbose_name="Remise (TND)")
@@ -121,16 +125,23 @@ class Produit(models.Model):
         self.pourcentage = self.clean_decimal(self.pourcentage)
         self.remise = self.clean_decimal(self.remise)
         
-        # Appeler le calcul des champs
-        try:
-            self.calculer_champs()
-        except:
-            pass
+        # 🔥 Le calcul automatique des champs manquants ne s'applique QU'À LA CRÉATION
+        # (juste après l'extraction OCR/YOLO, quand certains champs sont encore vides).
+        # Lors d'une modification (edit_product), on enregistre EXACTEMENT ce qui a été
+        # saisi/validé dans le formulaire, sans recalcul automatique derrière.
+        est_creation = self.pk is None
+        if est_creation:
+            try:
+                self.calculer_champs()
+            except:
+                pass
         
         super().save(*args, **kwargs)
     
     def calculer_champs(self):
-        """Calcule automatiquement les champs manquants - NE JAMAIS PLANTER"""
+        """Calcule automatiquement les champs manquants - NE JAMAIS PLANTER
+        🔥 Ne remplace JAMAIS une valeur déjà saisie/présente : ne calcule QUE ce qui est None.
+        """
         try:
             prix = self.prix
             prix_avant = self.prix_avant
@@ -142,20 +153,30 @@ class Produit(models.Model):
             
             if remise and not prix and not prix_avant:
                 return
-                
+            
+            # Cas 1 : prix + prix_avant connus -> déduire remise/pourcentage SEULEMENT s'ils sont vides
             if prix is not None and prix_avant is not None and prix_avant > 0:
-                self.remise = prix_avant - prix
-                if prix_avant > 0 and self.remise > 0:
-                    self.pourcentage = (self.remise / prix_avant) * 100
-                else:
-                    self.remise = None
-                    self.pourcentage = None
+                if remise is None:
+                    calc_remise = prix_avant - prix
+                    if calc_remise > 0:
+                        self.remise = calc_remise
+                        if pourcentage is None:
+                            self.pourcentage = round((self.remise / prix_avant) * 100)
+                # Si remise était déjà fournie par l'utilisateur, on n'y touche pas
+                
+            # Cas 2 : prix + pourcentage connus, prix_avant manquant -> le déduire
             elif prix is not None and pourcentage is not None and pourcentage > 0:
-                self.prix_avant = prix / (1 - pourcentage / 100)
-                self.remise = self.prix_avant - prix
+                if prix_avant is None:
+                    self.prix_avant = prix / (1 - pourcentage / 100)
+                    if remise is None:
+                        self.remise = self.prix_avant - prix
+                        
+            # Cas 3 : prix_avant + pourcentage connus, prix manquant -> le déduire
             elif prix_avant is not None and pourcentage is not None and pourcentage > 0:
-                self.prix = prix_avant * (1 - pourcentage / 100)
-                self.remise = prix_avant - self.prix
+                if prix is None:
+                    self.prix = prix_avant * (1 - pourcentage / 100)
+                    if remise is None:
+                        self.remise = prix_avant - self.prix
         except:
             pass
     

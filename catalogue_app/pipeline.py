@@ -291,7 +291,25 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
                 data['description_3'] = extracted_value
         
         # Calcul des prix
-        if extracted_pct is not None and 1 <= extracted_pct <= 100:
+        # 🔥 RÈGLE D'OR : si prix ET prix_avant ont TOUS LES DEUX été lus directement par l'OCR,
+        # on les garde tels quels (ce sont les vraies valeurs imprimées). On ne les recalcule
+        # JAMAIS à partir du pourcentage, car le "-X%" affiché sur l'étiquette est souvent
+        # lui-même arrondi et ne redonne pas exactement le même prix_avant si on le recalcule.
+        if extracted_prix is not None and extracted_prix > 0 and extracted_prix_avant is not None and extracted_prix_avant > 0:
+            data['prix'] = extracted_prix
+            data['prix_avant'] = extracted_prix_avant
+            if extracted_pct is not None and 1 <= extracted_pct <= 100:
+                # Le pourcentage a aussi été lu directement -> on garde la valeur imprimée
+                data['pourcentage'] = extracted_pct
+                data['remise'] = f"{extracted_pct}%"
+            elif extracted_prix < extracted_prix_avant:
+                # Pas de pourcentage lu -> on le déduit des 2 prix réels
+                pct = round((1 - extracted_prix / extracted_prix_avant) * 100)
+                if 1 <= pct <= 100:
+                    data['pourcentage'] = pct
+                    data['remise'] = f"{pct}%"
+        # Un seul des deux prix est connu + un pourcentage -> on déduit celui qui manque
+        elif extracted_pct is not None and 1 <= extracted_pct <= 100:
             data['pourcentage'] = extracted_pct
             data['remise'] = f"{extracted_pct}%"
             if extracted_prix is not None and extracted_prix > 0:
@@ -300,14 +318,6 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
             elif extracted_prix_avant is not None and extracted_prix_avant > 0:
                 data['prix'] = round(extracted_prix_avant * (1 - extracted_pct/100), 3)
                 data['prix_avant'] = extracted_prix_avant
-        elif extracted_prix is not None and extracted_prix_avant is not None and extracted_prix_avant > 0:
-            if extracted_prix < extracted_prix_avant:
-                pct = round((1 - extracted_prix / extracted_prix_avant) * 100, 2)
-                if 1 <= pct <= 100:
-                    data['pourcentage'] = pct
-                    data['remise'] = f"{pct}%"
-                    data['prix'] = extracted_prix
-                    data['prix_avant'] = extracted_prix_avant
         elif extracted_prix is not None and extracted_prix > 0:
             data['prix'] = extracted_prix
         elif extracted_prix_avant is not None and extracted_prix_avant > 0:

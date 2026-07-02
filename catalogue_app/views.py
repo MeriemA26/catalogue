@@ -439,6 +439,7 @@ def upload_stream(request):
                 _detect_language
             )
             import cv2, torch, re, base64 as b64
+            from decimal import Decimal
 
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
             product_model = get_product_model()
@@ -497,7 +498,9 @@ def upload_stream(request):
 
                     field_results = field_model.predict(crop, conf=0.5, device=device, verbose=False)[0]
                     field_names   = field_results.names
-                    extracted_pct = extracted_prix = extracted_prix_avant = None
+                    extracted_pct = None
+                    extracted_prix = None
+                    extracted_prix_avant = None
 
                     for fbox, fcls in zip(field_results.boxes.xyxy.cpu().numpy(), field_results.boxes.cls.cpu().numpy()):
                         fx1, fy1, fx2, fy2 = map(int, fbox)
@@ -518,19 +521,25 @@ def upload_stream(request):
                             data['marque'] = v or extract_text(roi, reader_ar)
                         elif class_name == 'price':
                             v = extract_price(roi)
+                            print(f"  🔍 extract_price retourné: '{v}'")
                             if v:
-                                data['prix'] = float(v)
-                                extracted_prix = float(v)
+                                data['prix'] = Decimal(v)
+                                extracted_prix = Decimal(v)
+                                print(f"  ✅ Prix extrait: {v} -> {data['prix']}")
                         elif class_name == 'price_before':
                             v = extract_price(roi)
+                            print(f"  🔍 extract_price (price_before) retourné: '{v}'")
                             if v:
-                                data['prix_avant'] = float(v)
-                                extracted_prix_avant = float(v)
+                                data['prix_avant'] = Decimal(v)
+                                extracted_prix_avant = Decimal(v)
+                                print(f"  ✅ Prix avant extrait: {v} -> {data['prix_avant']}")
                         elif class_name == 'pct':
                             v = extract_percentage(roi)
+                            print(f"  🔍 extract_percentage retourné: '{v}'")
                             if v:
-                                data['pourcentage'] = float(v)
-                                extracted_pct = float(v)
+                                data['pourcentage'] = Decimal(v)
+                                extracted_pct = Decimal(v)
+                                print(f"  ✅ Pourcentage extrait: {v} -> {data['pourcentage']}")
                         elif class_name in ('description', 'description2', 'description3'):
                             v = extract_text(roi, reader_latin) or extract_text(roi, reader_ar)
                             if v:
@@ -539,18 +548,56 @@ def upload_stream(request):
                             key = {'description': 'description', 'description2': 'description_2', 'description3': 'description_3'}[class_name]
                             data[key] = v or ''
 
-                    # Calcul prix
-                    if extracted_pct and 1 <= extracted_pct <= 100:
+                    # 🔥 LOGS DES VALEURS EXTRAITES
+                    print(f"\n🔍 PRODUIT {idx+1} - VALEURS EXTRAITES BRUTES:")
+                    print(f"  raw prix: {data.get('prix')}")
+                    print(f"  raw prix_avant: {data.get('prix_avant')}")
+                    print(f"  raw pourcentage: {data.get('pourcentage')}")
+                    print(f"  extracted_prix: {extracted_prix}")
+                    print(f"  extracted_prix_avant: {extracted_prix_avant}")
+                    print(f"  extracted_pct: {extracted_pct}")
+
+                    # 🔥 CORRECTION : Calcul des prix avec Decimal
+                    if extracted_pct is not None and 1 <= float(extracted_pct) <= 100:
                         data['pourcentage'] = extracted_pct
-                        if extracted_prix:
-                            data['prix_avant'] = round(extracted_prix / (1 - extracted_pct / 100), 3)
-                        elif extracted_prix_avant:
-                            data['prix'] = round(extracted_prix_avant * (1 - extracted_pct / 100), 3)
-                    elif extracted_prix and extracted_prix_avant and extracted_prix_avant > 0:
+                        data['remise'] = f"{extracted_pct}%"
+                        
+                        if extracted_prix is not None and extracted_prix > 0:
+                            # prix_avant = prix / (1 - pct/100)
+                            prix_avant_calc = extracted_prix / (1 - extracted_pct / 100)
+                            data['prix_avant'] = round(prix_avant_calc, 3)
+                            data['prix'] = extracted_prix
+                            print(f"  ✅ Calcul CAS 1: prix={extracted_prix}, prix_avant={data['prix_avant']}, pct={extracted_pct}")
+                        elif extracted_prix_avant is not None and extracted_prix_avant > 0:
+                            # prix = prix_avant * (1 - pct/100)
+                            prix_calc = extracted_prix_avant * (1 - extracted_pct / 100)
+                            data['prix'] = round(prix_calc, 3)
+                            data['prix_avant'] = extracted_prix_avant
+                            print(f"  ✅ Calcul CAS 2: prix={data['prix']}, prix_avant={extracted_prix_avant}, pct={extracted_pct}")
+                        else:
+                            print(f"  ⚠️ Pourcentage trouvé mais pas de prix valide")
+                    
+                    elif extracted_prix is not None and extracted_prix_avant is not None and extracted_prix_avant > 0:
                         if extracted_prix < extracted_prix_avant:
-                            pct = round((1 - extracted_prix / extracted_prix_avant) * 100, 2)
-                            if 1 <= pct <= 100:
-                                data['pourcentage'] = pct
+                            pct = (1 - extracted_prix / extracted_prix_avant) * 100
+                            if 1 <= float(pct) <= 100:
+                                data['pourcentage'] = round(pct, 2)
+                                data['remise'] = f"{round(pct, 2)}%"
+                                data['prix'] = extracted_prix
+                                data['prix_avant'] = extracted_prix_avant
+                                print(f"  ✅ Calcul CAS 3: prix={extracted_prix}, prix_avant={extracted_prix_avant}, pct={round(pct, 2)}")
+                            else:
+                                print(f"  ⚠️ Pourcentage hors limite: {pct}")
+                        else:
+                            print(f"  ⚠️ Prix >= prix_avant: {extracted_prix} >= {extracted_prix_avant}")
+                    elif extracted_prix is not None and extracted_prix > 0:
+                        data['prix'] = extracted_prix
+                        print(f"  ✅ Prix seul: {extracted_prix}")
+                    elif extracted_prix_avant is not None and extracted_prix_avant > 0:
+                        data['prix_avant'] = extracted_prix_avant
+                        print(f"  ✅ Prix avant seul: {extracted_prix_avant}")
+                    else:
+                        print(f"  ⚠️ Aucun prix valide détecté")
 
                     # Créer le produit en DB
                     nom_fr = data['nom_fr'].strip()
@@ -576,15 +623,26 @@ def upload_stream(request):
                         except Exception:
                             pass
 
+                    print(f"\n{'='*60}")
+                    print(f"📦 CRÉATION PRODUIT {idx+1} - VALEURS DATA")
+                    print(f"{'='*60}")
+                    print(f"  data['prix']: {data.get('prix')} (type: {type(data.get('prix'))})")
+                    print(f"  data['prix_avant']: {data.get('prix_avant')} (type: {type(data.get('prix_avant'))})")
+                    print(f"  data['pourcentage']: {data.get('pourcentage')} (type: {type(data.get('pourcentage'))})")
+                    print(f"  data['remise']: {data.get('remise')}")
+                    print(f"  data['description']: {data.get('description')[:50] if data.get('description') else 'None'}")
+                    print(f"{'='*60}")
+
+                    # 🔥 Créer le produit avec Decimal pour prix et prix_avant
                     produit = Produit(
                         catalogue=catalogue,
                         nom=nom_affiche,
                         nom_fr=nom_fr or None,
                         nom_ar=nom_ar or None,
                         marque=data.get('marque') or None,
-                        prix=data.get('prix'),
-                        prix_avant=data.get('prix_avant'),
-                        pourcentage=data.get('pourcentage'),
+                        prix=float(data.get('prix')) if data.get('prix') is not None else None,
+                        prix_avant=float(data.get('prix_avant')) if data.get('prix_avant') is not None else None,
+                        pourcentage=float(data.get('pourcentage')) if data.get('pourcentage') is not None else None,
                         remise=remise_val or None,
                         description=description or None,
                         description_2=description_2 or None,
@@ -592,9 +650,41 @@ def upload_stream(request):
                         extrait_texte=f"Marque: {data.get('marque','')} - {description}" or None,
                         image_produit=image_produit,
                     )
+                    
+                    print(f"\n  📊 VALEURS PRODUIT AVANT SAVE:")
+                    print(f"  produit.prix: {produit.prix}")
+                    print(f"  produit.prix_avant: {produit.prix_avant}")
+                    print(f"  produit.pourcentage: {produit.pourcentage}")
+                    print(f"  produit.remise: {produit.remise}")
+                    
                     produit.save()
+                    
+                    print(f"\n  📊 VALEURS PRODUIT APRÈS SAVE:")
+                    print(f"  produit.prix: {produit.prix}")
+                    print(f"  produit.prix_avant: {produit.prix_avant}")
+                    print(f"  produit.pourcentage: {produit.pourcentage}")
+                    print(f"  produit.remise: {produit.remise}")
+                    print(f"{'='*60}\n")
 
-                    # Préparer la payload SSE
+                    # 🔥 Préparer la payload SSE (UNE SEULE FOIS)
+                    prix_val = str(produit.prix) if produit.prix is not None else ''
+                    prix_avant_val = str(produit.prix_avant) if produit.prix_avant is not None else ''
+                    pct_val = str(int(produit.pourcentage)) if produit.pourcentage is not None else ''
+                    
+                    # 🔥 S'assurer que le prix a 3 décimales
+                    if prix_val and '.' in prix_val:
+                        parts = prix_val.split('.')
+                        if len(parts[1]) < 3:
+                            prix_val = parts[0] + '.' + parts[1].ljust(3, '0')
+                    elif prix_val:
+                        prix_val = prix_val + '.000'
+
+                    print(f"\n  📤 PAYLOAD SSE - Produit {idx+1}:")
+                    print(f"  prix: '{prix_val}'")
+                    print(f"  prix_avant: '{prix_avant_val}'")
+                    print(f"  pourcentage: '{pct_val}'")
+
+                    # 🔥 UNE SEULE PAYLOAD
                     payload = {
                         'type': 'product',
                         'index': idx + 1,
@@ -604,9 +694,9 @@ def upload_stream(request):
                         'nom_fr': nom_fr,
                         'nom_ar': nom_ar,
                         'marque': data.get('marque', ''),
-                        'prix': str(produit.prix) if produit.prix is not None else '',
-                        'prix_avant': str(produit.prix_avant) if produit.prix_avant is not None else '',
-                        'pourcentage': str(int(produit.pourcentage)) if produit.pourcentage is not None else '',
+                        'prix': prix_val,
+                        'prix_avant': prix_avant_val,
+                        'pourcentage': pct_val,
                         'description': description[:80] if description else '',
                         'description_2': description_2[:80] if description_2 else '',
                         'description_3': description_3[:80] if description_3 else '',
@@ -645,7 +735,7 @@ def upload_stream(request):
     response['Cache-Control'] = 'no-cache'
     response['X-Accel-Buffering'] = 'no'
     return response
-
+# catalogue_app/views.py - edit_product CORRIGÉ
 
 def edit_product(request, product_id):
     """Éditer un produit individuel avec calcul automatique des prix (TND)"""
@@ -655,43 +745,46 @@ def edit_product(request, product_id):
         form = ProduitForm(request.POST, instance=produit)
         if form.is_valid():
             try:
-                # Sauvegarder le produit
+                # 🔥 Récupérer les valeurs du formulaire (AVANT sauvegarde)
+                prix = form.cleaned_data.get('prix')
+                prix_avant = form.cleaned_data.get('prix_avant')
+                pourcentage = form.cleaned_data.get('pourcentage')
+                remise = form.cleaned_data.get('remise')
+                
+                # 🔥 Sauvegarder le formulaire (mais pas encore en DB)
                 produit = form.save(commit=False)
                 
-                # Récupérer les valeurs
-                prix = produit.prix
-                prix_avant = produit.prix_avant
-                pourcentage = produit.pourcentage
-                remise = produit.remise
-                
-                # 🔥 Logique de calcul des prix (TND)
-                # 1. Si prix et prix_avant -> remise et pourcentage
+                # 🔥 Logique de calcul MAIS seulement si les valeurs sont manquantes
+                # 1. Si prix et prix_avant sont fournis
                 if prix is not None and prix_avant is not None and prix_avant > 0:
                     if prix < prix_avant:
-                        produit.remise = prix_avant - prix
-                        produit.pourcentage = (produit.remise / prix_avant) * 100
+                        # Ne calculer que si pourcentage est None ou 0
+                        if pourcentage is None or pourcentage == 0:
+                            produit.pourcentage = ((prix_avant - prix) / prix_avant) * 100
+                        # Ne calculer que si remise est None ou 0
+                        if remise is None or remise == 0:
+                            produit.remise = prix_avant - prix
                     else:
                         produit.remise = None
                         produit.pourcentage = None
                 
-                # 2. Si prix et pourcentage -> prix_avant
+                # 2. Si prix et pourcentage sont fournis (et pas prix_avant)
                 elif prix is not None and pourcentage is not None and pourcentage > 0 and pourcentage <= 100:
-                    produit.prix_avant = prix / (1 - pourcentage / 100)
-                    produit.remise = produit.prix_avant - prix
+                    if prix_avant is None:
+                        produit.prix_avant = prix / (1 - pourcentage / 100)
+                        produit.remise = produit.prix_avant - prix
                 
-                # 3. Si prix_avant et pourcentage -> prix
+                # 3. Si prix_avant et pourcentage sont fournis (et pas prix)
                 elif prix_avant is not None and pourcentage is not None and pourcentage > 0 and pourcentage <= 100:
-                    produit.prix = prix_avant * (1 - pourcentage / 100)
-                    produit.remise = prix_avant - produit.prix
+                    if prix is None:
+                        produit.prix = prix_avant * (1 - pourcentage / 100)
+                        produit.remise = prix_avant - produit.prix
                 
-                # 4. Si remise est lue directement -> prix_avant et pourcentage
+                # 4. Si prix et remise sont fournis
                 elif prix is not None and remise is not None and remise > 0:
-                    produit.prix_avant = prix + remise
-                    produit.pourcentage = (remise / produit.prix_avant) * 100
-                
-                # 5. Si seul remise est donnée sans prix
-                elif remise is not None and remise > 0 and prix is None:
-                    produit.remise = remise
+                    if prix_avant is None:
+                        produit.prix_avant = prix + remise
+                        produit.pourcentage = (remise / produit.prix_avant) * 100
                 
                 # Sauvegarder les modifications
                 produit.save()
@@ -711,7 +804,6 @@ def edit_product(request, product_id):
         'produit': produit,
     }
     return render(request, 'edit_product.html', context)
-
 
 @csrf_exempt
 def update_product_field(request):

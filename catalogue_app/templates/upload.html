@@ -155,12 +155,14 @@
                      "nom_fr": "{{ produit.nom_fr|default:''|escapejs }}",
                      "nom_ar": "{{ produit.nom_ar|default:''|escapejs }}",
                      "marque": "{{ produit.marque|default:''|escapejs }}",
-                     "prix": "{{ produit.prix|default:'' }}",
-                     "prix_avant": "{{ produit.prix_avant|default:'' }}",
-                     "pourcentage": "{{ produit.pourcentage|default:'' }}",
+                     "prix": "{{ produit.prix|default:''|stringformat:'s' }}",
+                     "prix_avant": "{{ produit.prix_avant|default:''|stringformat:'s' }}",
+                     "pourcentage": "{{ produit.pourcentage|default:''|stringformat:'s' }}",
                      "description": "{{ produit.description|default:''|escapejs }}",
                      "description_2": "{{ produit.description_2|default:''|escapejs }}",
                      "description_3": "{{ produit.description_3|default:''|escapejs }}",
+                     "description_user_1": "{{ produit.description_user_1|default:''|escapejs }}",
+                     "description_user_2": "{{ produit.description_user_2|default:''|escapejs }}",
                      "image_url": "{% if produit.image_produit %}{{ produit.image_produit.url }}{% endif %}"
                  }{% if not forloop.last %},{% endif %}
                  {% endif %}
@@ -292,6 +294,8 @@ $(document).ready(function () {
             '<td>' + escHtml(p.description) + '</td>' +
             '<td>' + escHtml(p.description_2) + '</td>' +
             '<td>' + escHtml(p.description_3) + '</td>' +
+            '<td>' + escHtml(p.description_user_1) + '</td>' +
+            '<td>' + escHtml(p.description_user_2) + '</td>' +
             '<td><a href="/product/edit/' + p.id + '/" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a></td>'
         );
 
@@ -324,7 +328,8 @@ $(document).ready(function () {
             '<th><input type="checkbox" id="selectAll2"></th>' +
             '<th>#</th><th>🖼️ Image</th><th>Nom (FR)</th><th>Nom (AR)</th>' +
             '<th>Marque</th><th>Prix</th><th>Prix Avant</th><th>%</th>' +
-            '<th>Description</th><th>Description 2</th><th>Description 3</th><th>Actions</th>' +
+            '<th>Description</th><th>Description 2</th><th>Description 3</th>' +
+            '<th>Description suppl. 1</th><th>Description suppl. 2</th><th>Actions</th>' +
             '</tr></thead>' +
             '<tbody id="productTableBody">' +
             '</tbody>' +
@@ -799,6 +804,8 @@ $(document).ready(function () {
                 '<td>' + escHtml(p.description) + '</td>' +
                 '<td>' + escHtml(p.description_2) + '</td>' +
                 '<td>' + escHtml(p.description_3) + '</td>' +
+                '<td>' + escHtml(p.description_user_1) + '</td>' +
+                '<td>' + escHtml(p.description_user_2) + '</td>' +
                 '<td><a href="/product/edit/' + p.id + '/" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a></td>'
             );
         }
