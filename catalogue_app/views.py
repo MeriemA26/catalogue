@@ -1218,9 +1218,6 @@ def get_recent_products(request):
         })
     return JsonResponse({'products': data})
 
-# catalogue_app/views.py - Fonction add_product CORRIGÉE
-# catalogue_app/views.py - Fonction add_product SIMPLIFIÉE (sans modèle)
-
 def add_product(request):
     """Page pour ajouter un produit manuellement (sans extraction)"""
     
@@ -1244,7 +1241,8 @@ def add_product(request):
         description = request.POST.get('description', '').strip()
         description_2 = request.POST.get('description_2', '').strip()
         description_3 = request.POST.get('description_3', '').strip()
-        
+        description_user_1 = request.POST.get('description_user_1', '').strip()
+        description_user_2 = request.POST.get('description_user_2', '').strip()       
         # Convertir les prix
         prix = None
         if request.POST.get('prix'):
@@ -1290,6 +1288,8 @@ def add_product(request):
             description=description or None,
             description_2=description_2 or None,
             description_3=description_3 or None,
+            description_user_1=description_user_1 or None, 
+            description_user_2=description_user_2 or None,
             image_produit=image_produit,
             est_sauvegarde=False,
         )
@@ -1302,7 +1302,6 @@ def add_product(request):
         'catalogue': catalogue,
     }
     return render(request, 'add_product.html', context)
-# catalogue_app/views.py - Ajoutez ces fonctions
 
 def get_marques_list(request):
     """API pour récupérer la liste des marques uniques des produits non sauvegardés"""
