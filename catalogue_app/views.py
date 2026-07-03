@@ -1537,6 +1537,8 @@ def delete_saved_product(request, product_id):
     
     return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
 
+# catalogue_app/views.py - export_products_excel CORRIGÉ
+
 def export_products_excel(request):
     """Exporter les produits du dernier catalogue sauvegardé en fichier Excel"""
     
@@ -1606,8 +1608,11 @@ def export_products_excel(request):
         for col in range(1, len(headers) + 1):
             cell = ws.cell(row=row_idx, column=col)
             cell.border = border
-            if col in [5, 6, 7, 8]:  # Colonnes numériques
+            if col == 5 or col == 6 or col == 8:  # Prix, Prix avant, Remise
                 cell.number_format = '#,##0.000'
+                cell.alignment = Alignment(horizontal="right")
+            elif col == 7:  # 🔥 Pourcentage - format sans décimales
+                cell.number_format = '0'  # Affiche le nombre sans décimales
                 cell.alignment = Alignment(horizontal="right")
             else:
                 cell.alignment = Alignment(horizontal="left", wrap_text=True)
