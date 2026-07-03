@@ -23,7 +23,9 @@ from .utils import OCRProcessor
 import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side
 from django.http import HttpResponse
+from .sql_sync import SQLServerSync
 
+sql_sync = SQLServerSync()
 # Configuration du logging - Désactiver complètement
 logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
@@ -915,6 +917,14 @@ def save_selected_products(request):
             
             produits.update(est_sauvegarde=True)
             
+            try:
+                produits_a_sync = Produit.objects.filter(id__in=product_ids, est_sauvegarde=True)
+                if produits_a_sync.exists():
+                    sql_sync.sync_produits(produits_a_sync)
+                    print(f"✅ {produits_a_sync.count()} produits synchronisés avec SQL Server")
+            except Exception as e:
+                print(f"⚠️ Erreur lors de la synchronisation SQL: {e}")
+
             restants = Produit.objects.filter(est_sauvegarde=False).count()
             
             # 🔥 GARDER le catalogue dans la session QUOI QU'IL ARRIVE
@@ -986,7 +996,15 @@ def save_all_products(request):
                 return redirect('product_list')
             
             produits.update(est_sauvegarde=True)
-            
+
+            try:
+                produits_a_sync = Produit.objects.filter(est_sauvegarde=True)
+                if produits_a_sync.exists():
+                    sql_sync.sync_produits(produits_a_sync)
+                    print(f"✅ {produits_a_sync.count()} produits synchronisés avec SQL Server")
+            except Exception as e:
+                print(f"⚠️ Erreur lors de la synchronisation SQL: {e}")
+
             # 🔥 Supprimer TOUTES les données de session
             if 'last_uploaded_images' in request.session:
                 del request.session['last_uploaded_images']
@@ -1007,6 +1025,8 @@ def save_all_products(request):
         
         return redirect('product_list')
     return redirect('upload')
+
+# catalogue_app/views.py - CORRIGER delete_selected_products
 
 def delete_selected_products(request):
     """Supprimer les produits sélectionnés (depuis la base de données)"""
@@ -1033,6 +1053,9 @@ def delete_selected_products(request):
                 messages.warning(request, 'Aucun produit sélectionné non sauvegardé. Ils sont peut-être déjà supprimés.')
                 return redirect('upload')
             
+            # 🔥 Récupérer les IDs AVANT suppression
+            produits_ids = list(produits.values_list('id', flat=True))
+            
             for produit in produits:
                 if produit.image_produit:
                     try:
@@ -1043,6 +1066,14 @@ def delete_selected_products(request):
                         pass
             
             produits.delete()
+            
+            # 🔥 Supprimer de SQL Server
+            try:
+                if produits_ids:
+                    sql_sync.delete_produits(produits_ids)
+                    print(f"✅ {len(produits_ids)} produits supprimés de SQL Server")
+            except Exception as e:
+                print(f"⚠️ Erreur lors de la suppression SQL: {e}")
             
             restants = Produit.objects.filter(est_sauvegarde=False).count()
             
@@ -1087,6 +1118,7 @@ def delete_selected_products(request):
         
         return redirect('upload')
     return redirect('upload')
+# catalogue_app/views.py - CORRIGER delete_all_products
 
 def delete_all_products(request):
     """Supprimer tous les produits non sauvegardés (depuis la base de données)"""
@@ -1099,6 +1131,9 @@ def delete_all_products(request):
                 messages.info(request, 'Aucun produit à supprimer.')
                 return redirect('upload')
             
+            # 🔥 Récupérer les IDs AVANT suppression
+            produits_ids = list(produits.values_list('id', flat=True))
+            
             # Supprimer les images associées
             for produit in produits:
                 if produit.image_produit:
@@ -1110,6 +1145,14 @@ def delete_all_products(request):
                         pass
             
             produits.delete()
+            
+            # 🔥 Supprimer de SQL Server
+            try:
+                if produits_ids:
+                    sql_sync.delete_produits(produits_ids)
+                    print(f"✅ {len(produits_ids)} produits supprimés de SQL Server")
+            except Exception as e:
+                print(f"⚠️ Erreur lors de la suppression SQL: {e}")
             
             # 🔥 Supprimer TOUTES les données de session
             if 'last_uploaded_images' in request.session:
@@ -1131,7 +1174,6 @@ def delete_all_products(request):
         
         return redirect('upload')
     return redirect('upload')
-
 
 def product_list(request):
     """Liste des produits du dernier catalogue sauvegardé"""
@@ -1385,8 +1427,15 @@ def edit_product_saved(request, product_id):
                         produit.prix_avant = prix + remise
                         produit.pourcentage = (remise / produit.prix_avant) * 100
                 
-                # Sauvegarder les modifications
+                # 🔥 Sauvegarder les modifications
                 produit.save()
+                
+                # 🔥🔥🔥 AJOUT : Synchronisation SQL Server
+                try:
+                    sql_sync.sync_produits([produit])
+                    print(f"✅ Produit {produit.id} synchronisé avec SQL Server")
+                except Exception as e:
+                    print(f"⚠️ Erreur lors de la synchronisation SQL: {e}")
                 
                 messages.success(request, 'Produit mis à jour avec succès !')
                 return redirect('product_list')  # 🔥 SEULE DIFFÉRENCE : redirection vers product_list
@@ -1411,25 +1460,40 @@ def delete_saved_product(request, product_id):
         try:
             produit = get_object_or_404(Produit, id=product_id)
             
+            # 🔥 Récupérer l'ID avant suppression
+            produit_id = produit.id
+            print(f"🗑️ Suppression du produit ID: {produit_id}")
+            
             # Supprimer l'image associée
             if produit.image_produit:
                 try:
                     image_path = os.path.join(settings.MEDIA_ROOT, str(produit.image_produit))
                     if os.path.exists(image_path):
                         os.remove(image_path)
-                except:
-                    pass
+                        print(f"✅ Image supprimée: {image_path}")
+                except Exception as e:
+                    print(f"⚠️ Erreur suppression image: {e}")
             
             produit.delete()
+            print(f"✅ Produit {produit_id} supprimé de SQLite")
+            
+            # 🔥🔥🔥 AJOUT : Supprimer de SQL Server
+            try:
+                result = sql_sync.delete_produits([produit_id])
+                if result:
+                    print(f"✅ Produit {produit_id} supprimé de SQL Server")
+                else:
+                    print(f"⚠️ Échec suppression SQL Server pour {produit_id}")
+            except Exception as e:
+                print(f"⚠️ Erreur lors de la suppression SQL: {e}")
+            
             return JsonResponse({'success': True, 'message': 'Produit supprimé avec succès'})
             
         except Exception as e:
+            print(f"❌ Erreur delete_saved_product: {e}")
             return JsonResponse({'success': False, 'error': str(e)})
     
     return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
-
-# catalogue_app/views.py - export_products_excel CORRIGÉ
-
 def export_products_excel(request):
     """Exporter les produits du dernier catalogue sauvegardé en fichier Excel"""
     
