@@ -149,16 +149,6 @@
                         <i class="fas fa-undo"></i> Réinitialiser
                     </button>
                 </div>
-                <div class="col-md-1">
-                    <button class="btn btn-success w-100" id="saveByMarqueBtn" title="Sauvegarder tous les produits de cette marque">
-                        save <i class="fas fa-save"></i>
-                    </button>
-                </div>
-                <div class="col-md-1">
-                    <button class="btn btn-danger w-100" id="deleteByMarqueBtn" title="Supprimer tous les produits de cette marque">
-                        delete <i class="fas fa-trash"></i>
-                    </button>
-                </div>
             </div>
         </div>
     </div>
@@ -408,7 +398,9 @@ $(document).ready(function () {
 
     // Selectionner/deselectionner tous
     $(document).on('change', '#selectAll, #selectAll2', function () {
-        $('input[name="selected_products"]').prop('checked', $(this).prop('checked'));
+        var isChecked = $(this).prop('checked');
+        // 🔥 Ne sélectionner que les lignes visibles
+        $('#productTableBody tr:visible').find('input[name="selected_products"]').prop('checked', isChecked);
     });
 
     // Preview image avant upload
@@ -705,7 +697,24 @@ $(document).ready(function () {
                 }
             });
             
-            // 🔥 CORRECTION : Garder le tableau visible même si aucun produit trouvé
+            // 🔥 CORRECTION 1 : Désélectionner toutes les lignes cachées
+            $('#productTableBody tr:hidden').find('input[name="selected_products"]').prop('checked', false);
+            debugLog('🔽 Lignes cachées désélectionnées', 'info');
+            
+            // 🔥 CORRECTION 2 : Mettre à jour le "Select All" en fonction des lignes visibles
+            var visibleCheckboxes = $('#productTableBody tr:visible input[name="selected_products"]');
+            var checkedVisible = visibleCheckboxes.filter(':checked').length;
+            var totalVisible = visibleCheckboxes.length;
+            
+            // Décocher "Select All" si toutes les lignes visibles ne sont pas cochées
+            if (checkedVisible === totalVisible && totalVisible > 0) {
+                $('#selectAll2').prop('checked', true);
+            } else {
+                $('#selectAll2').prop('checked', false);
+            }
+            debugLog('🔄 "Select All" mis à jour: ' + ($('#selectAll2').prop('checked') ? 'coché' : 'décoché'), 'info');
+            
+            // 🔥 CORRECTION 3 : Garder le tableau visible même si aucun produit trouvé
             if (found) {
                 currentFilterMarque = searchTerm;
                 $('#filterInfo').html('🔍 <strong>' + visibleCount + '</strong> produit(s) trouvé(s) pour la marque <strong>"' + matchedMarque + '"</strong>');
@@ -861,170 +870,7 @@ $(document).ready(function () {
                 $('#filterSection').show();
             }
         }
-
-        // Supprimer par marque
-        function deleteByMarque() {
-            var searchTerm = $('#marqueSearchInput').val().trim();
-            
-            if (!searchTerm) {
-                alert('❌ Veuillez saisir une marque à supprimer.');
-                debugLog('❌ Tentative de suppression sans marque', 'error');
-                return;
-            }
-            
-            debugLog('🗑️ Suppression par marque: "' + searchTerm + '"', 'info');
-            
-            // Compter les produits visibles
-            var visibleRows = $('#productTableBody tr:visible');
-            var visibleCount = visibleRows.length;
-            
-            if (visibleCount === 0) {
-                alert('⚠️ Aucun produit visible pour la marque "' + searchTerm + '" à supprimer.');
-                debugLog('⚠️ Aucun produit visible pour "' + searchTerm + '"', 'error');
-                return;
-            }
-            
-            // Vérifier la marque exacte du premier produit visible
-            var firstMarque = visibleRows.first().find('td:eq(5)').text().trim();
-            
-            if (!confirm('⚠️ Êtes-vous sûr de vouloir supprimer tous les produits de la marque "' + firstMarque + '" ?\n\n' + visibleCount + ' produit(s) seront supprimés. Cette action est irréversible.')) {
-                debugLog('❌ Suppression annulée par l\'utilisateur', 'info');
-                return;
-            }
-            
-            // Désactiver le bouton
-            var btn = $('#deleteByMarqueBtn');
-            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Suppression...');
-            debugLog('⏳ Envoi de la requête de suppression...', 'info');
-            
-            $.ajax({
-                url: "{% url 'delete_by_marque' %}",
-                method: 'POST',
-                contentType: 'application/json',
-                headers: {
-                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').first().val()
-                },
-                data: JSON.stringify({
-                    marque: firstMarque
-                }),
-                success: function(response) {
-                    if (response.success) {
-                        debugLog('✅ ' + response.count + ' produits supprimés. Restants: ' + response.restants, 'success');
-                        
-                        // Supprimer les lignes du tableau
-                        visibleRows.remove();
-                        
-                        // Mettre à jour les badges
-                        var remaining = $('#productTableBody tr').length;
-                        updateFilterBadges(remaining);
-                        
-                        if (remaining === 0) {
-                            $('#productSection').hide();
-                            $('#noProductsMessage').show();
-                            $('#filterSection').hide();
-                            $('#addProductBtn').hide();
-                        }
-                        
-                        alert('✅ ' + response.message);
-                        
-                        // Recharger la liste des marques
-                        chargerMarques();
-                    } else {
-                        debugLog('❌ Erreur: ' + response.error, 'error');
-                        alert('❌ Erreur: ' + response.error);
-                    }
-                },
-                error: function(xhr) {
-                    debugLog('❌ Erreur AJAX: ' + xhr.status + ' - ' + xhr.statusText, 'error');
-                    alert('❌ Erreur lors de la suppression. Veuillez réessayer.');
-                },
-                complete: function() {
-                    btn.prop('disabled', false).html('<i class="fas fa-trash"></i> Supprimer');
-                }
-            });
-        }
-        // Sauvegarder par marque
-        function saveByMarque() {
-            var searchTerm = $('#marqueSearchInput').val().trim();
-            
-            if (!searchTerm) {
-                alert('❌ Veuillez saisir une marque à sauvegarder.');
-                debugLog('❌ Tentative de sauvegarde sans marque', 'error');
-                return;
-            }
-            
-            debugLog('💾 Sauvegarde par marque: "' + searchTerm + '"', 'info');
-            
-            // Compter les produits visibles
-            var visibleRows = $('#productTableBody tr:visible');
-            var visibleCount = visibleRows.length;
-            
-            if (visibleCount === 0) {
-                alert('⚠️ Aucun produit visible pour la marque "' + searchTerm + '" à sauvegarder.');
-                debugLog('⚠️ Aucun produit visible pour "' + searchTerm + '"', 'error');
-                return;
-            }
-            
-            // Vérifier la marque exacte du premier produit visible
-            var firstMarque = visibleRows.first().find('td:eq(5)').text().trim();
-            
-            if (!confirm('💾 Êtes-vous sûr de vouloir sauvegarder tous les produits de la marque "' + firstMarque + '" ?\n\n' + visibleCount + ' produit(s) seront sauvegardés.')) {
-                debugLog('❌ Sauvegarde annulée par l\'utilisateur', 'info');
-                return;
-            }
-            
-            // Désactiver le bouton
-            var btn = $('#saveByMarqueBtn');
-            btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
-            debugLog('⏳ Envoi de la requête de sauvegarde...', 'info');
-            
-            $.ajax({
-                url: "{% url 'save_by_marque' %}",
-                method: 'POST',
-                contentType: 'application/json',
-                headers: {
-                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').first().val()
-                },
-                data: JSON.stringify({
-                    marque: firstMarque
-                }),
-                success: function(response) {
-                    if (response.success) {
-                        debugLog('✅ ' + response.count + ' produits sauvegardés. Restants: ' + response.restants, 'success');
-                        
-                        // Supprimer les lignes du tableau
-                        visibleRows.remove();
-                        
-                        // Mettre à jour les badges
-                        var remaining = $('#productTableBody tr').length;
-                        updateFilterBadges(remaining);
-                        
-                        if (remaining === 0) {
-                            $('#productSection').hide();
-                            $('#noProductsMessage').show();
-                            $('#filterSection').hide();
-                            $('#addProductBtn').hide();
-                        }
-                        
-                        alert('✅ ' + response.message);
-                        
-                        // Recharger la liste des marques
-                        chargerMarques();
-                    } else {
-                        debugLog('❌ Erreur: ' + response.error, 'error');
-                        alert('❌ Erreur: ' + response.error);
-                    }
-                },
-                error: function(xhr) {
-                    debugLog('❌ Erreur AJAX: ' + xhr.status + ' - ' + xhr.statusText, 'error');
-                    alert('❌ Erreur lors de la sauvegarde. Veuillez réessayer.');
-                },
-                complete: function() {
-                    btn.prop('disabled', false).html('<i class="fas fa-save"></i>');
-                }
-            });
-        }
-        // Événements
+                // Événements
         $(document).on('input', '#marqueSearchInput', function() {
             // Filtrer les suggestions en temps réel
             var searchTerm = $(this).val().trim();

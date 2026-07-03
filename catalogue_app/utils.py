@@ -164,11 +164,14 @@ class OCRProcessor:
             traceback.print_exc()
             return []
     
+# catalogue_app/utils.py - extraire_texte_fallback CORRIGÉ
+
     def extraire_texte_fallback(self, image_path):
-        """Méthode de fallback utilisant EasyOCR directement"""
+        """Méthode de fallback utilisant EasyOCR avec les deux readers"""
         try:
             from .pipeline import get_ocr_readers
-            reader_latin, _ = get_ocr_readers()
+            reader_latin, reader_ar = get_ocr_readers()
+            
             image = cv2.imread(image_path)
             if image is None:
                 return ""
@@ -177,8 +180,21 @@ class OCRProcessor:
             gray = cv2.cvtColor(image_big, cv2.COLOR_BGR2GRAY)
             _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             
-            results = reader_latin.readtext(thresh, detail=0)
-            return ' '.join(results) if results else ""
+            # 🔥 Essayer avec le reader latin
+            results_latin = reader_latin.readtext(thresh, detail=0)
+            texts_latin = ' '.join(results_latin) if results_latin else ""
+            
+            # 🔥 Essayer avec le reader arabe
+            results_ar = reader_ar.readtext(thresh, detail=0)
+            texts_ar = ' '.join(results_ar) if results_ar else ""
+            
+            # 🔥 Combiner les résultats
+            combined = texts_latin + " " + texts_ar
+            
+            # 🔥 Nettoyer les doublons approximatifs
+            # On garde les deux car ils peuvent être différents
+            return combined.strip()
+            
         except Exception as e:
             print(f"❌ Erreur fallback: {e}")
             return ""

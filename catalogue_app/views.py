@@ -871,7 +871,6 @@ def update_product_field(request):
     
     return JsonResponse({'success': False, 'error': 'Methode non autorisee'})
 
-
 def save_selected_products(request):
     """Sauvegarder les produits sélectionnés (depuis la base de données)"""
     if request.method == 'POST':
@@ -890,7 +889,6 @@ def save_selected_products(request):
             if catalogue_id:
                 try:
                     catalogue = Catalogue.objects.get(id=catalogue_id)
-                    # 🔥 TOUJOURS mettre à jour la note (même si vide)
                     if catalogue.note != note:
                         catalogue.note = note
                         catalogue.save()
@@ -899,10 +897,15 @@ def save_selected_products(request):
                     pass
             
             product_ids = request.POST.getlist('selected_products')
+            
+            # 🔥 FILTRER : Enlever les IDs vides
+            product_ids = [pid for pid in product_ids if pid]
+            
             if not product_ids:
                 messages.warning(request, 'Aucun produit sélectionné.')
                 return redirect('upload')
             
+            # 🔥 Sauvegarder UNIQUEMENT les produits non sauvegardés
             produits = Produit.objects.filter(id__in=product_ids, est_sauvegarde=False)
             count = produits.count()
             
@@ -1015,6 +1018,10 @@ def delete_selected_products(request):
         print("=" * 80)
         try:
             product_ids = request.POST.getlist('selected_products')
+            
+            # 🔥 FILTRER : Enlever les IDs vides
+            product_ids = [pid for pid in product_ids if pid]
+            
             if not product_ids:
                 messages.warning(request, 'Aucun produit sélectionné.')
                 return redirect('upload')
@@ -1080,7 +1087,6 @@ def delete_selected_products(request):
         
         return redirect('upload')
     return redirect('upload')
-
 
 def delete_all_products(request):
     """Supprimer tous les produits non sauvegardés (depuis la base de données)"""
@@ -1329,121 +1335,6 @@ def get_marques_list(request):
             print(f"❌ Erreur get_marques_list: {e}")
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
-
-
-def delete_by_marque(request):
-    """Supprimer tous les produits d'une marque donnée"""
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            marque = data.get('marque', '').strip()
-            
-            print(f"🔍 Suppression par marque: '{marque}'")
-            
-            if not marque:
-                return JsonResponse({'success': False, 'error': 'Aucune marque spécifiée'})
-            
-            # Récupérer les produits de cette marque non sauvegardés (insensible à la casse)
-            produits = Produit.objects.filter(
-                marque__iexact=marque,
-                est_sauvegarde=False
-            )
-            
-            count = produits.count()
-            print(f"🔍 Produits trouvés pour '{marque}': {count}")
-            
-            if count == 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': f'Aucun produit trouvé pour la marque "{marque}"'
-                })
-            
-            # Supprimer les images associées
-            for produit in produits:
-                if produit.image_produit:
-                    try:
-                        image_path = os.path.join(settings.MEDIA_ROOT, str(produit.image_produit))
-                        if os.path.exists(image_path):
-                            os.remove(image_path)
-                    except:
-                        pass
-            
-            # Supprimer les produits
-            produits.delete()
-            
-            # Vérifier s'il reste des produits
-            restants = Produit.objects.filter(est_sauvegarde=False).count()
-            
-            print(f"✅ {count} produits supprimés, restants: {restants}")
-            
-            return JsonResponse({
-                'success': True,
-                'count': count,
-                'restants': restants,
-                'message': f'{count} produit(s) de la marque "{marque}" supprimé(s)'
-            })
-            
-        except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'error': 'JSON invalide'})
-        except Exception as e:
-            print(f"❌ Erreur delete_by_marque: {e}")
-            return JsonResponse({'success': False, 'error': str(e)})
-    
-    return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
-
-# catalogue_app/views.py - Ajoutez cette fonction
-
-def save_by_marque(request):
-    """Sauvegarder tous les produits d'une marque donnée"""
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            marque = data.get('marque', '').strip()
-            
-            print(f"🔍 Sauvegarde par marque: '{marque}'")
-            
-            if not marque:
-                return JsonResponse({'success': False, 'error': 'Aucune marque spécifiée'})
-            
-            # Récupérer les produits de cette marque non sauvegardés (insensible à la casse)
-            produits = Produit.objects.filter(
-                marque__iexact=marque,
-                est_sauvegarde=False
-            )
-            
-            count = produits.count()
-            print(f"🔍 Produits trouvés pour '{marque}': {count}")
-            
-            if count == 0:
-                return JsonResponse({
-                    'success': False,
-                    'error': f'Aucun produit trouvé pour la marque "{marque}"'
-                })
-            
-            # Sauvegarder les produits
-            produits.update(est_sauvegarde=True)
-            
-            # Vérifier s'il reste des produits non sauvegardés
-            restants = Produit.objects.filter(est_sauvegarde=False).count()
-            
-            print(f"✅ {count} produits sauvegardés, restants: {restants}")
-            
-            return JsonResponse({
-                'success': True,
-                'count': count,
-                'restants': restants,
-                'message': f'{count} produit(s) de la marque "{marque}" sauvegardé(s)'
-            })
-            
-        except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'error': 'JSON invalide'})
-        except Exception as e:
-            print(f"❌ Erreur save_by_marque: {e}")
-            return JsonResponse({'success': False, 'error': str(e)})
-    
-    return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
-
-# catalogue_app/views.py - Ajouter cette fonction
 
 def edit_product_saved(request, product_id):
     """Éditer un produit sauvegardé (redirige vers product_list après sauvegarde)"""

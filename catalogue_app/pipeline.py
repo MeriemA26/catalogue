@@ -70,10 +70,14 @@ def get_ocr_readers():
     global _reader_latin, _reader_ar
     if _reader_latin is None:
         use_gpu = torch.cuda.is_available()
+        # 🔥 Reader pour les langues latines (français, anglais)
         _reader_latin = easyocr.Reader(['fr', 'en'], gpu=use_gpu)
+        print("✅ Reader Latin (FR+EN) créé")
     if _reader_ar is None:
         use_gpu = torch.cuda.is_available()
-        _reader_ar = easyocr.Reader(['ar'], gpu=use_gpu)
+        # 🔥 Reader pour l'arabe (avec anglais pour les chiffres)
+        _reader_ar = easyocr.Reader(['ar', 'en'], gpu=use_gpu)
+        print("✅ Reader AR+EN créé")
     return _reader_latin, _reader_ar
 
 FIELD_CLASS_MAP = {
@@ -157,13 +161,49 @@ def extract_percentage(roi, debug=False):
                     pass
     return ""
 
-def extract_text(roi, reader):
+def extract_text_mixed(roi, reader_latin, reader_ar):
+    """
+    Extrait le texte d'une ROI en combinant les résultats du reader latin et arabe.
+    Utile pour les textes mixtes (arabe + français).
+    """
     roi_big = cv2.resize(roi, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
     gray = cv2.cvtColor(roi_big, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # 🔥 Essayer avec le reader latin d'abord
+    results_latin = reader_latin.readtext(thresh)
+    texts_latin = [t for bbox, t, conf in results_latin if conf > 0.2]
+    
+    # 🔥 Essayer avec le reader arabe
+    results_ar = reader_ar.readtext(thresh)
+    texts_ar = [t for bbox, t, conf in results_ar if conf > 0.2]
+    
+    # 🔥 Combiner les résultats (éviter les doublons)
+    all_texts = texts_latin + texts_ar
+    # Supprimer les doublons en gardant l'ordre
+    seen = set()
+    unique_texts = []
+    for text in all_texts:
+        text_clean = text.strip()
+        if text_clean and text_clean not in seen:
+            seen.add(text_clean)
+            unique_texts.append(text_clean)
+    
+    return " ".join(unique_texts)
+
+
+def extract_text(roi, reader, prefer_latin=True):
+    """
+    Extrait le texte d'une ROI avec un reader spécifique.
+    """
+    roi_big = cv2.resize(roi, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+    gray = cv2.cvtColor(roi_big, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
     results = reader.readtext(thresh)
     if results:
-        return " ".join([t for bbox, t, conf in results if conf > 0.2])
+        texts = [t for bbox, t, conf in results if conf > 0.2]
+        return " ".join(texts)
     return ""
 
 def format_price(value):
@@ -235,12 +275,14 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
                 extracted_value = extract_text(roi, reader_ar)
                 data['nom_ar'] = extracted_value
                 print(f"   ✅ Nom AR détecté: {extracted_value[:50]}...")
+                
             elif class_name == 'product_name':
                 extracted_value = extract_text(roi, reader_latin)
                 data['nom_fr'] = extracted_value
                 print(f"   ✅ Nom FR détecté: {extracted_value[:50]}...")
+                
             elif class_name == 'brand':
-                # Essayer d'abord en latin, puis en arabe si nécessaire
+                # Essayer d'abord en latin, puis en arabe
                 extracted_value = extract_text(roi, reader_latin)
                 if not extracted_value:
                     extracted_value = extract_text(roi, reader_ar)
@@ -266,29 +308,40 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
            # Dans pipeline.py, modifier la partie description :
 
             elif class_name == 'description':
-                # Essayer d'abord en latin, puis en arabe
+                # 🔥 Utiliser le reader latin pour les descriptions (peut contenir du français)
                 extracted_value = extract_text(roi, reader_latin)
+                # 🔥 Si pas de résultat, essayer avec le reader arabe
                 if not extracted_value:
                     extracted_value = extract_text(roi, reader_ar)
+                # 🔥 Si toujours pas, utiliser le mixte
+                if not extracted_value:
+                    extracted_value = extract_text_mixed(roi, reader_latin, reader_ar)
+                
                 # Nettoyer la description
                 if extracted_value:
-                    # Enlever les caractères parasites
-                    import re
                     extracted_value = re.sub(r'[^\w\s\u0600-\u06FF\.\,\-\(\)\:]+', ' ', extracted_value)
                     extracted_value = re.sub(r'\s+', ' ', extracted_value).strip()
                 data['description'] = extracted_value
                 if extracted_value:
                     print(f"   ✅ Description nettoyée: {extracted_value[:50]}...")
-            elif class_name == 'description2':
-                extracted_value = extract_text(roi, reader_latin)
-                if not extracted_value:
-                    extracted_value = extract_text(roi, reader_ar)
-                data['description_2'] = extracted_value
-            elif class_name == 'description3':
-                extracted_value = extract_text(roi, reader_latin)
-                if not extracted_value:
-                    extracted_value = extract_text(roi, reader_ar)
-                data['description_3'] = extracted_value
+                    
+                elif class_name == 'description2':
+                    # 🔥 Même logique pour description2
+                    extracted_value = extract_text(roi, reader_latin)
+                    if not extracted_value:
+                        extracted_value = extract_text(roi, reader_ar)
+                    if not extracted_value:
+                        extracted_value = extract_text_mixed(roi, reader_latin, reader_ar)
+                    data['description_2'] = extracted_value
+                    
+                elif class_name == 'description3':
+                    # 🔥 Même logique pour description3
+                    extracted_value = extract_text(roi, reader_latin)
+                    if not extracted_value:
+                        extracted_value = extract_text(roi, reader_ar)
+                    if not extracted_value:
+                        extracted_value = extract_text_mixed(roi, reader_latin, reader_ar)
+                    data['description_3'] = extracted_value
         
         # Calcul des prix
         # 🔥 RÈGLE D'OR : si prix ET prix_avant ont TOUS LES DEUX été lus directement par l'OCR,
