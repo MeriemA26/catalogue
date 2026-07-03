@@ -105,6 +105,8 @@ class SQLServerSync:
         finally:
             conn.close()
     
+# catalogue_app/sql_sync.py
+
     def sync_produits(self, produits):
         conn = self.get_connection()
         if not conn:
@@ -115,16 +117,56 @@ class SQLServerSync:
             cursor = conn.cursor()
             
             for produit in produits:
+                # Utiliser MERGE (UPSERT) pour SQL Server
                 cursor.execute("""
-                    INSERT INTO extraction (
-                        id_sqlite, nom_fr, nom_ar, marque,
-                        prix, prix_avant, pourcentage,
-                        description, description_2, description_3,
-                        description_user_1, description_user_2,
-                        catalogue_id
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    MERGE INTO extraction AS target
+                    USING (SELECT ? AS id_sqlite) AS source
+                    ON target.id_sqlite = source.id_sqlite
+                    WHEN MATCHED THEN
+                        UPDATE SET
+                            nom_fr = ?,
+                            nom_ar = ?,
+                            marque = ?,
+                            prix = ?,
+                            prix_avant = ?,
+                            pourcentage = ?,
+                            description = ?,
+                            description_2 = ?,
+                            description_3 = ?,
+                            description_user_1 = ?,
+                            description_user_2 = ?,
+                            catalogue_id = ?
+                    WHEN NOT MATCHED THEN
+                        INSERT (
+                            id_sqlite, nom_fr, nom_ar, marque,
+                            prix, prix_avant, pourcentage,
+                            description, description_2, description_3,
+                            description_user_1, description_user_2,
+                            catalogue_id
+                        ) VALUES (
+                            ?, ?, ?, ?,
+                            ?, ?, ?,
+                            ?, ?, ?,
+                            ?, ?, ?
+                        );
                 """, (
-                    produit.id,  # ← Utiliser id_sqlite
+                    # Source
+                    produit.id,
+                    # UPDATE
+                    produit.nom_fr or '',
+                    produit.nom_ar or '',
+                    produit.marque or '',
+                    produit.prix,
+                    produit.prix_avant,
+                    produit.pourcentage,
+                    produit.description or '',
+                    produit.description_2 or '',
+                    produit.description_3 or '',
+                    produit.description_user_1 or '',
+                    produit.description_user_2 or '',
+                    produit.catalogue_id,
+                    # INSERT
+                    produit.id,
                     produit.nom_fr or '',
                     produit.nom_ar or '',
                     produit.marque or '',
@@ -140,14 +182,14 @@ class SQLServerSync:
                 ))
             
             conn.commit()
-            print(f"✅ {len(produits)} produits synchronisés avec SQL Server")
+            print(f"✅ {len(produits)} produits synchronisés avec SQL Server (UPSERT)")
             return True
         except Exception as e:
             print(f"❌ Erreur lors de la synchronisation des produits: {e}")
+            conn.rollback()
             return False
         finally:
             conn.close()
-    
     def delete_produits(self, produits_ids):
         """Supprime les produits de SQL Server par id_sqlite"""
         conn = self.get_connection()
