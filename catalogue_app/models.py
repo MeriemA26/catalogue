@@ -41,16 +41,21 @@ class Catalogue(models.Model):
     date_fin = models.DateField(verbose_name="Date de fin")
     date_upload = models.DateTimeField(auto_now_add=True, verbose_name="Date d'upload")
     image_path = models.CharField(max_length=255, blank=True, null=True, verbose_name="Chemin de l'image")
-    
+    note = models.CharField(
+        max_length=255, 
+        blank=True, 
+        null=True, 
+        verbose_name="Note (ex: Saint Valentin, Noël, Eid...)"
+    )
     class Meta:
         unique_together = ['enseigne', 'date_debut', 'date_fin']
         verbose_name = "Catalogue"
         verbose_name_plural = "Catalogues"
         ordering = ['-date_upload']
-    
     def __str__(self):
-        return f"{self.enseigne.get_nom_display()} - {self.date_debut} à {self.date_fin}"
-
+        note_str = f" - {self.note}" if self.note else ""
+        return f"{self.enseigne.get_nom_display()} - {self.date_debut} à {self.date_fin}{note_str}"
+    
 class Produit(models.Model):
     catalogue = models.ForeignKey(Catalogue, on_delete=models.CASCADE, related_name='produits', verbose_name="Catalogue")
     

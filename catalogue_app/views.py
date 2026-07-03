@@ -1,4 +1,5 @@
 # catalogue_app/views.py - Version avec corrections
+from aiohttp import request
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
@@ -112,6 +113,7 @@ def upload(request):
                 enseigne = form.cleaned_data['enseigne']
                 date_debut = form.cleaned_data['date_debut']
                 date_fin = form.cleaned_data['date_fin']
+                note = form.cleaned_data.get('note', '')
                 images = request.FILES.getlist('images')
                 
                 if not images:
@@ -123,9 +125,12 @@ def upload(request):
                     enseigne=enseigne,
                     date_debut=date_debut,
                     date_fin=date_fin,
-                    defaults={'date_upload': timezone.now()}
+                    defaults={'date_upload': timezone.now()
+                              , 'note': note}
                 )
-                
+                if not created and note and catalogue.note != note:
+                    catalogue.note = note
+                    catalogue.save()
                 # 🔥 Sauvegarder l'ID du catalogue dans la session
                 request.session['active_catalogue_id'] = catalogue.id
                 
@@ -306,9 +311,11 @@ def upload(request):
                 'enseigne': catalogue_actuel.enseigne.id,
                 'date_debut': catalogue_actuel.date_debut.strftime('%Y-%m-%d'),
                 'date_fin': catalogue_actuel.date_fin.strftime('%Y-%m-%d'),
+                'note': catalogue_actuel.note or '',  # 🔥 Pré-remplir la note
             }
             form = UploadForm(initial=initial_data)
             print(f"✅ Formulaire pré-rempli avec les valeurs du catalogue {catalogue_actuel.id}")
+            print(f"   Note: '{catalogue_actuel.note}'")
 
     # 🔥 Récupérer TOUS les produits non sauvegardés dans UN SEUL tableau
     catalogues_recents = {}
@@ -399,7 +406,7 @@ def upload_stream(request):
     enseigne_id = request.POST.get('enseigne')
     date_debut_str = request.POST.get('date_debut')
     date_fin_str = request.POST.get('date_fin')
-
+    note = request.POST.get('note', '')
     if not enseigne_id or not date_debut_str or not date_fin_str:
         return JsonResponse({'error': 'Données manquantes'}, status=400)
 
@@ -413,14 +420,27 @@ def upload_stream(request):
     from datetime import datetime
     date_debut = datetime.strptime(date_debut_str, '%Y-%m-%d').date()
     date_fin = datetime.strptime(date_fin_str, '%Y-%m-%d').date()
-
-    # Créer ou récupérer le catalogue
-    catalogue, _ = Catalogue.objects.get_or_create(
-        enseigne=enseigne,
-        date_debut=date_debut,
-        date_fin=date_fin,
-        defaults={'date_upload': timezone.now()}
-    )
+    try:
+        catalogue = Catalogue.objects.get(
+            enseigne=enseigne,
+            date_debut=date_debut,
+            date_fin=date_fin
+        )
+        # 🔥 Mettre à jour la note si elle a changé
+        if note and catalogue.note != note:
+            catalogue.note = note
+            catalogue.save()
+            print(f"✅ Note mise à jour dans upload_stream: '{note}'")
+    except Catalogue.DoesNotExist:
+        # Créer un nouveau catalogue avec la note
+        catalogue = Catalogue.objects.create(
+            enseigne=enseigne,
+            date_debut=date_debut,
+            date_fin=date_fin,
+            date_upload=timezone.now(),
+            note=note
+        )
+        print(f"✅ Nouveau catalogue créé avec note: '{note}'")
 
     total_produits = 0
     images_paths = []
@@ -862,6 +882,22 @@ def save_selected_products(request):
         print(f"📌 active_catalogue_id avant: {request.session.get('active_catalogue_id', 'NON TROUVÉ')}")
         print("=" * 80)
         try:
+            # 🔥 Récupérer la note depuis le POST
+            note = request.POST.get('note', '').strip()
+            catalogue_id = request.session.get('active_catalogue_id', None)
+            
+            # 🔥 Sauvegarder la note si elle a changé
+            if catalogue_id:
+                try:
+                    catalogue = Catalogue.objects.get(id=catalogue_id)
+                    # 🔥 TOUJOURS mettre à jour la note (même si vide)
+                    if catalogue.note != note:
+                        catalogue.note = note
+                        catalogue.save()
+                        print(f"✅ Note mise à jour: '{note}'")
+                except Catalogue.DoesNotExist:
+                    pass
+            
             product_ids = request.POST.getlist('selected_products')
             if not product_ids:
                 messages.warning(request, 'Aucun produit sélectionné.')
@@ -920,11 +956,25 @@ def save_selected_products(request):
         return redirect('upload')
     return redirect('upload')
 
-
 def save_all_products(request):
     """Sauvegarder tous les produits et rediriger vers product_list"""
     if request.method == 'POST':
         try:
+            # 🔥 Récupérer la note depuis le POST
+            note = request.POST.get('note', '').strip()
+            catalogue_id = request.session.get('active_catalogue_id', None)
+            
+            # 🔥 Sauvegarder la note si elle a changé
+            if catalogue_id:
+                try:
+                    catalogue = Catalogue.objects.get(id=catalogue_id)
+                    if catalogue.note != note:
+                        catalogue.note = note
+                        catalogue.save()
+                        print(f"✅ Note mise à jour (save_all): '{note}'")
+                except Catalogue.DoesNotExist:
+                    pass
+            
             produits = Produit.objects.filter(est_sauvegarde=False)
             count = produits.count()
             
@@ -954,7 +1004,6 @@ def save_all_products(request):
         
         return redirect('product_list')
     return redirect('upload')
-
 
 def delete_selected_products(request):
     """Supprimer les produits sélectionnés (depuis la base de données)"""

@@ -25,6 +25,15 @@ class UploadForm(forms.Form):
     date_fin = forms.DateField(
         widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
     )
+    note = forms.CharField(
+        max_length=255,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ex: Saint Valentin, Noël, Eid, Promotion été...'
+        }),
+        label="Note (optionnelle)"
+    )
     # 🔥 Champ pour plusieurs images
     images = forms.FileField(
         widget=MultipleFileInput(attrs={

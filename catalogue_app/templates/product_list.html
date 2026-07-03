@@ -25,6 +25,11 @@
                 <div class="col-md-8">
                     <h5 class="mb-0">
                         <i class="fas fa-store"></i> {{ catalogue.enseigne.nom }}
+                        {% if catalogue.note %}
+                            <span class="badge bg-light text-dark ms-2">
+                                <i class="fas fa-tag"></i> {{ catalogue.note }}
+                            </span>
+                        {% endif %}
                     </h5>
                     <small>
                         📅 {{ catalogue.date_debut|date:"d/m/Y" }} → {{ catalogue.date_fin|date:"d/m/Y" }}
