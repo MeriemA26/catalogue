@@ -1,0 +1,272 @@
+/* =========================================================================
+   DÉLICE CATALOGUE APP — delice_style.css (v3)
+   Direction : le bleu Délice est la couleur principale du site (comme sur
+   delice.tn). Un seul accent complémentaire (corail) réservé aux actions
+   de suppression et aux remises. Dégradés et cartes "verre" pour l'effet
+   waouh, typographie plus caractérielle (Sora + Inter).
+
+   Aucun sélecteur ne cible les #id gérés en JS par display/show/hide —
+   les boutons sont réordonnés visuellement en CSS pur (propriété order),
+   sans toucher au HTML généré par upload.html.
+   ========================================================================= */
+
+:root {
+  --blue-900: #0b3d68;
+  --blue-800: #0e4c81;
+  --blue-700: #135a96;
+  --blue-600: #1877c9;
+  --blue-500: #2f93e6;
+  --blue-100: #e7f1fc;
+  --sky:      #f4f8fd;
+
+  --coral:     #ff6b57;
+  --coral-ink: #d94a37;
+  --coral-100: #ffece8;
+
+  --ink:       #16233a;
+  --ink-soft:  #5c6b82;
+  --surface:   #ffffff;
+  --line:      #e3eaf3;
+
+  --font-display: 'Sora', 'Segoe UI', Arial, sans-serif;
+  --font-body: 'Inter', 'Segoe UI', Arial, sans-serif;
+
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --shadow-sm: 0 2px 8px rgba(11, 61, 104, 0.07);
+  --shadow-md: 0 12px 28px rgba(11, 61, 104, 0.12);
+  --shadow-lift: 0 18px 40px rgba(11, 61, 104, 0.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+
+/* =========================================================================
+   BASE
+   ========================================================================= */
+html, body { background: var(--sky); font-family: var(--font-body); color: var(--ink); }
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display); color: var(--blue-900);
+  font-weight: 700; letter-spacing: -0.01em;
+}
+
+main.container { min-height: 70vh; }
+
+a { color: var(--blue-700); text-decoration: none; }
+a:hover { color: var(--blue-900); text-decoration: underline; }
+
+::selection { background: var(--blue-100); color: var(--blue-900); }
+
+a:focus-visible, button:focus-visible, input:focus-visible,
+select:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--blue-500); outline-offset: 2px;
+}
+
+/* =========================================================================
+   NAVBAR — dégradé bleu signature, comme le bandeau delice.tn
+   ========================================================================= */
+.navbar-delice {
+  background: linear-gradient(120deg, var(--blue-900) 0%, var(--blue-600) 100%);
+  padding: 0.85rem 0;
+  position: relative;
+  box-shadow: var(--shadow-md);
+}
+.navbar-delice::after {
+  content: "";
+  position: absolute; left: 0; right: 0; bottom: -3px; height: 3px;
+  background: linear-gradient(90deg, var(--coral) 0%, var(--blue-500) 55%, transparent 100%);
+}
+
+.navbar-delice .navbar-brand {
+  display: flex; align-items: center; gap: 0.65rem;
+  font-family: var(--font-display); font-weight: 700; font-size: 1.2rem;
+  color: #ffffff !important;
+}
+.navbar-delice .navbar-brand .brand-logo {
+  height: 36px; width: 36px; border-radius: 10px;
+  background: #ffffff; padding: 3px; object-fit: contain;
+  box-shadow: var(--shadow-sm);
+}
+.navbar-delice .navbar-brand i { display: none; }
+
+.navbar-delice .nav-link {
+  color: rgba(255,255,255,0.82) !important; font-weight: 600; font-size: 0.9rem;
+  padding: 0.55rem 1rem !important; border-radius: 999px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+.navbar-delice .nav-link i { margin-right: 0.4rem; }
+.navbar-delice .nav-link:hover { background: rgba(255,255,255,0.14); color: #fff !important; }
+.navbar-delice .nav-link.active { background: #ffffff; color: var(--blue-800) !important; }
+
+/* =========================================================================
+   ALERTES
+   ========================================================================= */
+.alert-delice-success { background: var(--blue-100); border: 1px solid var(--blue-500); color: var(--blue-900); border-radius: var(--radius-md); }
+.alert-delice-danger  { background: var(--coral-100); border: 1px solid var(--coral); color: var(--coral-ink); border-radius: var(--radius-md); }
+.alert-delice-warning { background: #fff6e9; border: 1px solid #e8b84b; color: #7a5a20; border-radius: var(--radius-md); }
+
+/* =========================================================================
+   PAGE HEADER
+   ========================================================================= */
+.page-header {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+  margin-bottom: 1.5rem; padding: 1.4rem 1.6rem; border-radius: var(--radius-lg);
+  background: linear-gradient(120deg, var(--blue-800) 0%, var(--blue-600) 100%);
+  box-shadow: var(--shadow-md);
+}
+.page-header h4 { font-size: 1.3rem; margin-bottom: 0.2rem; color: #fff; }
+.page-header h4 i { color: var(--coral); margin-right: 0.5rem; }
+.page-header .header-sub { font-size: 0.82rem; color: rgba(255,255,255,0.8); }
+.page-header .header-sub i { margin-right: 0.35rem; }
+
+.btn-delice {
+  background: #ffffff; color: var(--blue-800); font-weight: 700; font-family: var(--font-display);
+  border-radius: 999px; padding: 0.6rem 1.4rem; border: none; box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-delice:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+
+/* =========================================================================
+   DASHBOARD — carte hero en dégradé bleu + cartes claires, 2 teintes max
+   ========================================================================= */
+.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+
+.stat-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  padding: 1.25rem 1.4rem; box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+
+.stat-card .stat-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 10px; font-size: 0.9rem; margin-bottom: 0.6rem;
+  background: var(--blue-100); color: var(--blue-700);
+}
+.stat-card .stat-number { font-family: var(--font-display); font-weight: 800; color: var(--blue-900); line-height: 1; }
+.stat-card .stat-label { color: var(--ink-soft); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.68rem; margin-top: 0.35rem; }
+.stat-card .stat-sub { margin-top: 0.5rem; font-size: 0.78rem; color: var(--ink-soft); }
+
+/* Carte hero : la seule en dégradé plein, pour le total */
+.stat-card.green {
+  background: linear-gradient(135deg, var(--blue-800) 0%, var(--blue-600) 100%);
+  border-color: transparent;
+}
+.stat-card.green .stat-icon { background: rgba(255,255,255,0.18); color: #fff; }
+.stat-card.green .stat-number, .stat-card.green .stat-label { color: #fff; }
+.stat-card.green .stat-sub { color: rgba(255,255,255,0.8); }
+
+/* Le point corail est réservé à la promo/remise, jamais décoratif ailleurs */
+.stat-card.orange .stat-icon { background: var(--coral-100); color: var(--coral-ink); }
+.stat-card.gold .stat-icon, .stat-card.blue .stat-icon, .stat-card.purple .stat-icon { background: var(--blue-100); color: var(--blue-700); }
+
+.badge-delice { display: inline-block; background: var(--blue-100); color: var(--blue-800); font-weight: 700; padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.75rem; }
+.badge-delice-warning { display: inline-block; background: var(--coral-100); color: var(--coral-ink); font-weight: 700; padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.75rem; margin-left: 0.3rem; }
+
+/* =========================================================================
+   GRAPHIQUES
+   ========================================================================= */
+.chart-grid, .bottom-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.chart-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm); }
+.chart-box .chart-title { font-family: var(--font-display); font-weight: 700; color: var(--blue-900); margin-bottom: 0.8rem; font-size: 0.95rem; }
+.chart-box .chart-title i { color: var(--coral); margin-right: 0.4rem; }
+.chart-wrapper { position: relative; min-height: 260px; }
+.chart-wrapper.small { min-height: 200px; }
+
+.recent-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 260px; overflow-y: auto; }
+.recent-item { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.7rem; border-radius: var(--radius-sm); background: var(--sky); }
+.recent-item .badge-marque { background: var(--surface); border: 1px solid var(--line); color: var(--blue-700); font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.72rem; }
+.recent-item .product-name { flex: 1; color: var(--ink); }
+.recent-item .product-price { color: var(--blue-800); font-weight: 800; }
+
+/* =========================================================================
+   CARTES / TABLEAUX
+   ========================================================================= */
+.card { border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.card-header { border-radius: calc(var(--radius-lg) - 1px) calc(var(--radius-lg) - 1px) 0 0 !important; font-family: var(--font-display); font-weight: 700; border-bottom: 1px solid var(--line); }
+.card-header.bg-primary {
+  background: linear-gradient(120deg, var(--blue-800) 0%, var(--blue-600) 100%) !important;
+  color: #fff; border-bottom: none;
+}
+.card-header.bg-success { background: var(--blue-700) !important; color: #fff; border-bottom: none; }
+
+.table thead th { background: var(--blue-100); color: var(--blue-900); font-family: var(--font-display); font-weight: 700; font-size: 0.78rem; border-bottom: 1px solid var(--line); }
+.table-hover tbody tr:hover { background: var(--sky); }
+.table td, .table th { vertical-align: middle; }
+
+.form-control, .form-select { border-radius: var(--radius-sm); border: 1px solid var(--line); }
+.form-control:focus, .form-select:focus { border-color: var(--blue-600); box-shadow: 0 0 0 3px var(--blue-100); }
+
+/* =========================================================================
+   BOUTONS — bleu = famille principale, corail = unique accent réservé aux
+   actions destructives. Radius pilule, léger relief, lift au survol.
+   ========================================================================= */
+.btn, .btn-sm { border-radius: 999px; font-weight: 700; border-width: 1.5px; padding: 0.5rem 1.2rem; transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease; }
+.btn:hover { transform: translateY(-1px); }
+
+.btn-primary, .btn-success {
+  background: linear-gradient(120deg, var(--blue-700) 0%, var(--blue-600) 100%);
+  border-color: transparent; color: #fff; box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover, .btn-success:hover { box-shadow: var(--shadow-md); background: linear-gradient(120deg, var(--blue-800) 0%, var(--blue-700) 100%); color: #fff; }
+
+.btn-secondary { background: transparent; border-color: var(--line); color: var(--ink-soft); }
+.btn-secondary:hover { background: var(--sky); border-color: var(--blue-500); color: var(--blue-800); }
+
+.btn-danger { background: var(--coral); border-color: var(--coral); color: #fff; }
+.btn-danger:hover { background: var(--coral-ink); border-color: var(--coral-ink); }
+
+.btn-dark { background: transparent; border-color: var(--coral); color: var(--coral-ink); }
+.btn-dark:hover { background: var(--coral); border-color: var(--coral); color: #fff; }
+
+.btn-warning { background: transparent; border-color: var(--line); color: var(--blue-800); border-radius: var(--radius-sm); }
+.btn-warning:hover { background: var(--blue-700); border-color: var(--blue-700); color: #fff; }
+
+/* --- Réorganisation visuelle de la barre d'actions (upload.html) ---
+   Structure réelle : <div class="d-flex flex-wrap gap-2 mt-2">
+                         <div class="btn-group">save-sel, save-all, del-sel, del-all</div>
+                         <a id="addProductBtn">Ajouter un produit</a>
+                       </div>
+   On réordonne en CSS pur (aucune modif de upload.html) :
+   "Ajouter un produit" passe en premier et se détache visuellement,
+   puis les sauvegardes (bleu), puis un espace, puis les suppressions
+   (corail) regroupées à droite. */
+#addProductBtn { order: -1; margin-right: 0.75rem; box-shadow: var(--shadow-sm); }
+#saveSelectedBtn, #saveAllBtn { order: 1; }
+#deleteSelectedBtn { order: 2; margin-left: 1.25rem; }
+#deleteAllBtn { order: 3; }
+.btn-group:has(#saveSelectedBtn) { display: flex; flex-wrap: wrap; gap: 0.5rem; background: transparent; }
+.btn-group:has(#saveSelectedBtn) > .btn { border-radius: 999px !important; }
+
+/* =========================================================================
+   FOOTER
+   ========================================================================= */
+.footer-delice { margin-top: 3rem; padding: 1.2rem 0; background: linear-gradient(120deg, var(--blue-900) 0%, var(--blue-800) 100%); color: rgba(255,255,255,0.75); font-size: 0.85rem; text-align: center; }
+.footer-delice .delice-logo { display: block; font-family: var(--font-display); font-weight: 700; color: #fff; margin-bottom: 0.2rem; }
+.footer-delice .delice-logo i { color: var(--coral); margin-right: 0.4rem; }
+
+/* =========================================================================
+   UTILITAIRES BOOTSTRAP RECOLORÉS
+   ========================================================================= */
+.text-success { color: var(--blue-800) !important; font-weight: 700; }
+.text-danger { color: var(--ink-soft) !important; }
+
+.badge.bg-danger { background: var(--coral) !important; color: #fff; font-weight: 700; border-radius: 999px; }
+.badge.bg-warning { background: var(--blue-100) !important; color: var(--blue-800) !important; border: 1px solid var(--blue-100); font-weight: 700; border-radius: 999px; }
+.badge.bg-info { background: transparent !important; color: var(--blue-700) !important; border: 1px solid var(--line); font-weight: 700; border-radius: 999px; }
+.badge.bg-primary { background: rgba(255,255,255,0.2) !important; color: #fff !important; font-weight: 700; border-radius: 999px; }
+
+.progress { background: var(--blue-100); border-radius: 999px; overflow: hidden; }
+.progress-bar { background: linear-gradient(90deg, var(--coral) 0%, var(--blue-600) 100%) !important; }
+
+/* =========================================================================
+   RESPONSIVE
+   ========================================================================= */
+@media (max-width: 768px) {
+  .page-header { flex-direction: column; align-items: flex-start; }
+  .stat-card .stat-number { font-size: 1.7rem; }
+  #deleteSelectedBtn { margin-left: 0; }
+}

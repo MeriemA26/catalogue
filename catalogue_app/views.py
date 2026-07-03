@@ -32,14 +32,101 @@ logger = logging.getLogger(__name__)
 
 
 def index(request):
-    """Page d'accueil"""
+    """Page d'accueil avec tableau de bord statistique"""
+    from django.db.models import Count, Q, Avg
+    from collections import defaultdict
+    import json
+    
+    # 🔥 Statistiques de base
+    total_produits = Produit.objects.count()
+    total_produits_sauvegardes = Produit.objects.filter(est_sauvegarde=True).count()
+    total_produits_non_sauvegardes = Produit.objects.filter(est_sauvegarde=False).count()
+    total_catalogues = Catalogue.objects.count()
+    total_enseignes = Enseigne.objects.count()
+    
+    # 🔥 Produits par marque (top 10)
+    produits_par_marque = Produit.objects.filter(
+        est_sauvegarde=True,
+        marque__isnull=False
+    ).exclude(
+        marque=''
+    ).values('marque').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+    
+    marques_labels = [item['marque'] for item in produits_par_marque]
+    marques_counts = [item['count'] for item in produits_par_marque]
+    
+    # 🔥 Produits par enseigne
+    produits_par_enseigne = Produit.objects.filter(
+        est_sauvegarde=True
+    ).values('catalogue__enseigne__nom').annotate(
+        count=Count('id')
+    ).order_by('-count')
+    
+    enseignes_labels = []
+    enseignes_counts = []
+    for item in produits_par_enseigne:
+        if item['catalogue__enseigne__nom']:
+            enseignes_labels.append(item['catalogue__enseigne__nom'])
+            enseignes_counts.append(item['count'])
+    
+    # 🔥 Évolution par mois (derniers 6 mois)
+    from datetime import datetime, timedelta
+    mois_stats = defaultdict(int)
+    six_mois_avant = datetime.now().date() - timedelta(days=180)
+    
+    produits_par_mois = Produit.objects.filter(
+        est_sauvegarde=True,
+        created_at__date__gte=six_mois_avant
+    ).values('created_at__year', 'created_at__month').annotate(
+        count=Count('id')
+    ).order_by('created_at__year', 'created_at__month')
+    
+    mois_labels = []
+    mois_counts = []
+    for stat in produits_par_mois:
+        mois_label = f"{stat['created_at__year']}-{str(stat['created_at__month']).zfill(2)}"
+        mois_labels.append(mois_label)
+        mois_counts.append(stat['count'])
+    
+    # 🔥 Statistiques des remises
+    produits_avec_remise = Produit.objects.filter(
+        est_sauvegarde=True,
+        pourcentage__isnull=False,
+        pourcentage__gt=0
+    )
+    total_avec_remise = produits_avec_remise.count()
+    remise_moyenne = produits_avec_remise.aggregate(Avg('pourcentage'))['pourcentage__avg'] or 0
+    
+    # 🔥 Derniers produits ajoutés
+    derniers_produits = Produit.objects.filter(
+        est_sauvegarde=True
+    ).order_by('-created_at')[:5]
+    
+    # Palette de couleurs
+    couleurs = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9']
+    
     context = {
-        'enseignes': Enseigne.objects.all(),
-        'total_produits': Produit.objects.count(),
-        'total_catalogues': Catalogue.objects.count(),
+        'total_produits': total_produits,
+        'total_produits_sauvegardes': total_produits_sauvegardes,
+        'total_produits_non_sauvegardes': total_produits_non_sauvegardes,
+        'total_catalogues': total_catalogues,
+        'total_enseignes': total_enseignes,
+        'total_avec_remise': total_avec_remise,
+        'remise_moyenne': round(remise_moyenne, 1),
+        'derniers_produits': derniers_produits,
+        # Données JSON pour les graphiques
+        'marques_labels_json': json.dumps(marques_labels),
+        'marques_counts_json': json.dumps(marques_counts),
+        'marques_couleurs_json': json.dumps(couleurs[:len(marques_labels)]),
+        'enseignes_labels_json': json.dumps(enseignes_labels),
+        'enseignes_counts_json': json.dumps(enseignes_counts),
+        'mois_labels_json': json.dumps(mois_labels),
+        'mois_counts_json': json.dumps(mois_counts),
+        'top_marques': produits_par_marque,
     }
     return render(request, 'index.html', context)
-
 
 def upload(request):
     """Page d'upload avec traitement OCR pour une ou plusieurs images"""

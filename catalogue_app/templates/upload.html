@@ -11,11 +11,7 @@
     <div class="col-md-12">
         <div class="alert alert-{% if produits_non_sauvegardes > 0 %}success{% else %}info{% endif %}">
             <label class="form-label fw-bold">📷 Images du catalogue actuel :</label>
-            
-            <!-- 🔥 Afficher les informations du catalogue -->
-            # catalogue_app/views.py - Dans upload, section contexte
 
-            # Dans l'alerte d'affichage du catalogue
             <!-- Dans l'alerte du catalogue -->
             {% if catalogue_actuel %}
             <div class="row mb-2">

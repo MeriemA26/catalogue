@@ -1,27 +1,262 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block extra_head %}
+<style>
+    /* Ajustements spécifiques à la page d'accueil */
+    .welcome-text {
+        font-size: 0.9rem;
+        color: var(--delice-text-light);
+    }
+    .stat-card .stat-number {
+        font-size: 2.2rem;
+    }
+    .stat-card .stat-label {
+        font-size: 0.7rem;
+    }
+    .stat-card .stat-sub .badge-delice {
+        font-size: 0.65rem;
+    }
+    .chart-box .chart-title {
+        font-size: 0.85rem;
+    }
+    .recent-item .product-name {
+        font-size: 0.8rem;
+    }
+    .recent-item .product-price {
+        font-size: 0.8rem;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-12">
-        <h2>Bienvenue sur Catalogue App</h2>
-        <div class="row mt-4">
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Catalogues</h5>
-                        <p class="display-4">{{ total_catalogues }}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Produits</h5>
-                        <p class="display-4">{{ total_produits }}</p>
-                    </div>
-                </div>
-            </div>
+<!-- En-tête -->
+<div class="page-header">
+    <div>
+        <h4><i class="fas fa-chart-pie"></i>Tableau de bord</h4>
+        <span class="header-sub"><i class="far fa-calendar-alt"></i>Mis à jour aujourd'hui</span>
+    </div>
+    <a href="{% url 'upload' %}" class="btn-delice">
+        <i class="fas fa-upload me-1"></i>Nouveau catalogue
+    </a>
+</div>
+
+<!-- Statistiques -->
+<div class="dashboard-grid">
+    <div class="stat-card green">
+        <span class="stat-icon"><i class="fas fa-boxes"></i></span>
+        <div class="stat-number">{{ total_produits }}</div>
+        <div class="stat-label">Produits total</div>
+        <div class="stat-sub">
+            <span class="badge-delice">{{ total_produits_sauvegardes }} sauvegardés</span>
+            {% if total_produits_non_sauvegardes > 0 %}
+                <span class="badge-delice-warning">{{ total_produits_non_sauvegardes }} en attente</span>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="stat-card gold">
+        <span class="stat-icon"><i class="fas fa-tags"></i></span>
+        <div class="stat-number">{{ top_marques|length }}</div>
+        <div class="stat-label">Marques distinctes</div>
+        <div class="stat-sub">dans les catalogues sauvegardés</div>
+    </div>
+    
+    <div class="stat-card orange">
+        <span class="stat-icon"><i class="fas fa-percent"></i></span>
+        <div class="stat-number">{{ total_avec_remise }}</div>
+        <div class="stat-label">En promotion</div>
+        <div class="stat-sub">Remise moyenne: <strong>{{ remise_moyenne }}%</strong></div>
+    </div>
+    
+    <div class="stat-card blue">
+        <span class="stat-icon"><i class="fas fa-store"></i></span>
+        <div class="stat-number">{{ total_enseignes }}</div>
+        <div class="stat-label">Enseignes</div>
+        <div class="stat-sub">{{ total_catalogues }} catalogues</div>
+    </div>
+    
+    <div class="stat-card purple">
+        <span class="stat-icon"><i class="fas fa-clock"></i></span>
+        <div class="stat-number">{{ derniers_produits|length }}</div>
+        <div class="stat-label">Derniers ajouts</div>
+        <div class="stat-sub">5 derniers produits</div>
+    </div>
+</div>
+
+<!-- Graphiques -->
+<div class="chart-grid">
+    <div class="chart-box">
+        <div class="chart-title"><i class="fas fa-trophy"></i> Top marques</div>
+        <div class="chart-wrapper">
+            <canvas id="marquesChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="chart-box">
+        <div class="chart-title"><i class="fas fa-store-alt"></i> Répartition par enseigne</div>
+        <div class="chart-wrapper">
+            <canvas id="enseignesChart"></canvas>
         </div>
     </div>
 </div>
+
+<!-- Bas de page -->
+<div class="bottom-grid">
+    <div class="chart-box">
+        <div class="chart-title"><i class="fas fa-chart-line"></i> Évolution mensuelle</div>
+        <div class="chart-wrapper small">
+            <canvas id="moisChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="chart-box">
+        <div class="chart-title"><i class="fas fa-history"></i> Derniers produits ajoutés</div>
+        <div class="recent-list">
+            {% if derniers_produits %}
+                {% for produit in derniers_produits %}
+                <div class="recent-item">
+                    <span class="badge-marque">{{ produit.marque|default:"Sans marque" }}</span>
+                    <span class="product-name">{{ produit.nom|truncatechars:30 }}</span>
+                    {% if produit.prix %}
+                        <span class="product-price">{{ produit.prix|floatformat:3 }} DT</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-center text-muted py-4" style="font-size:0.85rem;">
+                    <i class="fas fa-inbox me-2"></i>Aucun produit sauvegardé
+                </p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Palette de couleurs Délice
+    const deliceColors = ['#006633', '#00994d', '#c9a84c', '#2d7fc1', '#e67e22', '#8e44ad', '#1abc9c', '#e74c3c', '#f39c12', '#3498db'];
+
+    // Graphique 1: Top marques (barres horizontales)
+    const marquesCtx = document.getElementById('marquesChart').getContext('2d');
+    new Chart(marquesCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ marques_labels_json|safe }},
+            datasets: [{
+                label: 'Produits',
+                data: {{ marques_counts_json|safe }},
+                backgroundColor: deliceColors.slice(0, {{ marques_labels_json|safe|length }}),
+                borderRadius: 6,
+                maxBarThickness: 28,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'end',
+                    align: 'end',
+                    color: '#333333',
+                    font: { weight: '600', size: 10 },
+                    formatter: (v) => v > 0 ? v : ''
+                }
+            },
+            scales: {
+                x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } },
+                y: { ticks: { font: { size: 9, weight: '500' } } }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+    // Graphique 2: Enseignes (donut)
+    const enseignesCtx = document.getElementById('enseignesChart').getContext('2d');
+    const enseigneColors = ['#006633', '#c9a84c', '#2d7fc1', '#e67e22', '#8e44ad', '#1abc9c', '#e74c3c', '#3498db', '#2ecc71', '#f39c12'];
+    new Chart(enseignesCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ enseignes_labels_json|safe }},
+            datasets: [{
+                data: {{ enseignes_counts_json|safe }},
+                backgroundColor: enseigneColors.slice(0, {{ enseignes_counts_json|safe|length }}),
+                borderWidth: 3,
+                borderColor: '#ffffff',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '55%',
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { 
+                        padding: 12, 
+                        usePointStyle: true, 
+                        font: { size: 10, weight: '500' },
+                        boxWidth: 10,
+                    }
+                },
+                datalabels: {
+                    color: '#ffffff',
+                    font: { weight: '700', size: 11 },
+                    formatter: (value, ctx) => {
+                        let total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                        return total > 0 ? ((value / total) * 100).toFixed(0) + '%' : '';
+                    }
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+    // Graphique 3: Évolution mensuelle
+    const moisCtx = document.getElementById('moisChart').getContext('2d');
+    new Chart(moisCtx, {
+        type: 'line',
+        data: {
+            labels: {{ mois_labels_json|safe }},
+            datasets: [{
+                label: 'Produits',
+                data: {{ mois_counts_json|safe }},
+                borderColor: '#006633',
+                backgroundColor: 'rgba(0, 102, 51, 0.08)',
+                fill: true,
+                tension: 0.3,
+                pointBackgroundColor: '#006633',
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 2,
+                pointRadius: 4,
+                pointHoverRadius: 7,
+                borderWidth: 2.5,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'end',
+                    align: 'end',
+                    color: '#006633',
+                    font: { weight: '600', size: 9 },
+                    formatter: (v) => v > 0 ? v : ''
+                }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } },
+                x: { ticks: { font: { size: 8 }, maxRotation: 30 } }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+});
+</script>
 {% endblock %}

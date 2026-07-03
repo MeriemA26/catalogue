@@ -1,74 +1,93 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestion de Catalogues</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        .sidebar {
-            min-height: 100vh;
-            background: #2c3e50;
-            padding: 20px;
-        }
-        .sidebar .nav-link {
-            color: #ecf0f1;
-        }
-        .sidebar .nav-link:hover {
-            background: #34495e;
-            border-radius: 5px;
-        }
-        .main-content {
-            padding: 20px;
-        }
-    </style>
+    <title>Catalogue App | Délice</title>
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Polices (chargées ici, pas en @import, pour ne jamais bloquer le rendu) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Style Délice personnalisé -->
+    <link rel="stylesheet" href="{% static 'css/delice_style.css' %}">
+
+    {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-2 sidebar">
-                <h4 class="text-white mb-4">Catalogue App</h4>
-                <ul class="nav flex-column">
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-expand-lg navbar-delice">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'index' %}">
+                <img src="{% static 'images/logo_delice.png' %}" alt="Délice" class="brand-logo">
+                Catalogue App
+            </a>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'index' %}">
-                            <i class="fas fa-home"></i> Accueil
+                        <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="{% url 'index' %}">
+                            <i class="fas fa-chart-pie"></i>Accueil
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'upload' %}">
-                            <i class="fas fa-upload"></i> Upload
+                        <a class="nav-link {% if 'product_list' in request.path %}active{% endif %}" href="{% url 'product_list' %}">
+                            <i class="fas fa-box"></i>Produits
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'product_list' %}">
-                            <i class="fas fa-list"></i> Produits
+                        <a class="nav-link {% if 'upload' in request.path %}active{% endif %}" href="{% url 'upload' %}">
+                            <i class="fas fa-upload"></i>Upload
                         </a>
                     </li>
+
                 </ul>
             </div>
-            
-            <!-- Main Content -->
-            <div class="col-md-10 main-content">
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-                
-                {% block content %}
-                {% endblock %}
-            </div>
         </div>
+    </nav>
+
+    <!-- MESSAGES -->
+    <div class="container mt-3">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert {% if message.tags == 'success' %}alert-delice-success{% elif message.tags == 'error' %}alert-delice-danger{% elif message.tags == 'warning' %}alert-delice-warning{% else %}alert-delice-success{% endif %} alert-dismissible fade show" role="alert">
+                    <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} me-2"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
     </div>
-    
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- CONTENU PRINCIPAL -->
+    <main class="container py-3">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer-delice">
+        <div class="container">
+            <span class="delice-logo"><i class="fas fa-utensils"></i> Catalogue App</span>
+            &copy; {% now "Y" %} - Tous droits réservés
+        </div>
+    </footer>
+
+    <!-- SCRIPTS -->
+    <!-- jQuery : requis par $ / $.ajax utilisés dans upload.html, product_list.html, edit_product.html -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    {% block scripts %}
-    {% endblock %}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+
+    <!-- Les deux noms sont supportés car tes templates utilisent l'un ou l'autre -->
+    {% block extra_js %}{% endblock %}
+    {% block scripts %}{% endblock %}
 </body>
 </html>
