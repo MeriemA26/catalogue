@@ -86,7 +86,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 LANGUAGE_CODE = 'fr-fr'
-TIME_ZONE = 'Europe/Paris'
+TIME_ZONE = 'Africa/tunis'
 USE_I18N = True
 USE_TZ = True
 

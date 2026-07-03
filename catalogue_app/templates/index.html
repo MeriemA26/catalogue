@@ -1,262 +1,100 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block extra_head %}
-<style>
-    /* Ajustements spécifiques à la page d'accueil */
-    .welcome-text {
-        font-size: 0.9rem;
-        color: var(--delice-text-light);
-    }
-    .stat-card .stat-number {
-        font-size: 2.2rem;
-    }
-    .stat-card .stat-label {
-        font-size: 0.7rem;
-    }
-    .stat-card .stat-sub .badge-delice {
-        font-size: 0.65rem;
-    }
-    .chart-box .chart-title {
-        font-size: 0.85rem;
-    }
-    .recent-item .product-name {
-        font-size: 0.8rem;
-    }
-    .recent-item .product-price {
-        font-size: 0.8rem;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
 <!-- En-tête -->
-<div class="page-header">
-    <div>
-        <h4><i class="fas fa-chart-pie"></i>Tableau de bord</h4>
-        <span class="header-sub"><i class="far fa-calendar-alt"></i>Mis à jour aujourd'hui</span>
-    </div>
-    <a href="{% url 'upload' %}" class="btn-delice">
-        <i class="fas fa-upload me-1"></i>Nouveau catalogue
-    </a>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h5 class="fw-bold mb-0">
+        <i class="fas fa-chart-simple text-primary me-2"></i>Tableau de bord
+    </h5>
+    <span class="text-muted small">{% now "d/m/Y" %}</span>
 </div>
 
-<!-- Statistiques -->
-<div class="dashboard-grid">
-    <div class="stat-card green">
-        <span class="stat-icon"><i class="fas fa-boxes"></i></span>
-        <div class="stat-number">{{ total_produits }}</div>
-        <div class="stat-label">Produits total</div>
-        <div class="stat-sub">
-            <span class="badge-delice">{{ total_produits_sauvegardes }} sauvegardés</span>
-            {% if total_produits_non_sauvegardes > 0 %}
-                <span class="badge-delice-warning">{{ total_produits_non_sauvegardes }} en attente</span>
-            {% endif %}
+<!-- 4 indicateurs clés -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-3">
+                <h6 class="text-muted small text-uppercase mb-1">Catalogues</h6>
+                <h4 class="fw-bold mb-0">{{ total_catalogues|default:0 }}</h4>
+            </div>
         </div>
     </div>
-    
-    <div class="stat-card gold">
-        <span class="stat-icon"><i class="fas fa-tags"></i></span>
-        <div class="stat-number">{{ top_marques|length }}</div>
-        <div class="stat-label">Marques distinctes</div>
-        <div class="stat-sub">dans les catalogues sauvegardés</div>
-    </div>
-    
-    <div class="stat-card orange">
-        <span class="stat-icon"><i class="fas fa-percent"></i></span>
-        <div class="stat-number">{{ total_avec_remise }}</div>
-        <div class="stat-label">En promotion</div>
-        <div class="stat-sub">Remise moyenne: <strong>{{ remise_moyenne }}%</strong></div>
-    </div>
-    
-    <div class="stat-card blue">
-        <span class="stat-icon"><i class="fas fa-store"></i></span>
-        <div class="stat-number">{{ total_enseignes }}</div>
-        <div class="stat-label">Enseignes</div>
-        <div class="stat-sub">{{ total_catalogues }} catalogues</div>
-    </div>
-    
-    <div class="stat-card purple">
-        <span class="stat-icon"><i class="fas fa-clock"></i></span>
-        <div class="stat-number">{{ derniers_produits|length }}</div>
-        <div class="stat-label">Derniers ajouts</div>
-        <div class="stat-sub">5 derniers produits</div>
-    </div>
-</div>
-
-<!-- Graphiques -->
-<div class="chart-grid">
-    <div class="chart-box">
-        <div class="chart-title"><i class="fas fa-trophy"></i> Top marques</div>
-        <div class="chart-wrapper">
-            <canvas id="marquesChart"></canvas>
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-3">
+                <h6 class="text-muted small text-uppercase mb-1">Produits</h6>
+                <h4 class="fw-bold mb-0">{{ total_produits_sauvegardes|default:0 }}</h4>
+            </div>
         </div>
     </div>
-    
-    <div class="chart-box">
-        <div class="chart-title"><i class="fas fa-store-alt"></i> Répartition par enseigne</div>
-        <div class="chart-wrapper">
-            <canvas id="enseignesChart"></canvas>
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-3">
+                <h6 class="text-muted small text-uppercase mb-1">Enseignes</h6>
+                <h4 class="fw-bold mb-0">{{ total_enseignes|default:0 }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-3">
+                <h6 class="text-muted small text-uppercase mb-1">À traiter</h6>
+                <h4 class="fw-bold mb-0 text-warning">{{ produits_a_traiter|default:0 }}</h4>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- Bas de page -->
-<div class="bottom-grid">
-    <div class="chart-box">
-        <div class="chart-title"><i class="fas fa-chart-line"></i> Évolution mensuelle</div>
-        <div class="chart-wrapper small">
-            <canvas id="moisChart"></canvas>
-        </div>
+<!-- Catalogues actifs -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0">
+        <h6 class="fw-bold mb-0">
+            <i class="fas fa-calendar-check text-success me-2"></i>Catalogues actifs
+        </h6>
     </div>
-    
-    <div class="chart-box">
-        <div class="chart-title"><i class="fas fa-history"></i> Derniers produits ajoutés</div>
-        <div class="recent-list">
-            {% if derniers_produits %}
-                {% for produit in derniers_produits %}
-                <div class="recent-item">
-                    <span class="badge-marque">{{ produit.marque|default:"Sans marque" }}</span>
-                    <span class="product-name">{{ produit.nom|truncatechars:30 }}</span>
-                    {% if produit.prix %}
-                        <span class="product-price">{{ produit.prix|floatformat:3 }} DT</span>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            {% else %}
-                <p class="text-center text-muted py-4" style="font-size:0.85rem;">
-                    <i class="fas fa-inbox me-2"></i>Aucun produit sauvegardé
-                </p>
-            {% endif %}
-        </div>
+    <div class="card-body p-0">
+        {% if catalogues_actifs %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Enseigne</th>
+                            <th>Période</th>
+                            <th class="text-center">Produits</th>
+                            <th class="text-center">Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for catalogue in catalogues_actifs %}
+                        <tr onclick="location.href='{% url 'product_list' %}?catalogue={{ catalogue.id }}'" style="cursor:pointer;">
+                            <td><strong>{{ catalogue.enseigne.nom }}</strong></td>
+                            <td>
+                                <small>
+                                    {{ catalogue.date_debut|date:"d/m/y" }} - {{ catalogue.date_fin|date:"d/m/y" }}
+                                </small>
+                            </td>
+                            <td class="text-center">{{ catalogue.nb_produits }}</td>
+                            <td class="text-center">
+                                {% if catalogue.nb_non_sauvegardes == 0 %}
+                                    <span class="badge bg-success">Terminé</span>
+                                {% elif catalogue.nb_sauvegardes == 0 %}
+                                    <span class="badge bg-danger">Non traité</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">En cours ({{ catalogue.nb_sauvegardes }}/{{ catalogue.nb_produits }})</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="fas fa-box-open fa-2x mb-2"></i>
+                <p class="mb-0">Aucun catalogue actif</p>
+            </div>
+        {% endif %}
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Palette de couleurs Délice
-    const deliceColors = ['#006633', '#00994d', '#c9a84c', '#2d7fc1', '#e67e22', '#8e44ad', '#1abc9c', '#e74c3c', '#f39c12', '#3498db'];
-
-    // Graphique 1: Top marques (barres horizontales)
-    const marquesCtx = document.getElementById('marquesChart').getContext('2d');
-    new Chart(marquesCtx, {
-        type: 'bar',
-        data: {
-            labels: {{ marques_labels_json|safe }},
-            datasets: [{
-                label: 'Produits',
-                data: {{ marques_counts_json|safe }},
-                backgroundColor: deliceColors.slice(0, {{ marques_labels_json|safe|length }}),
-                borderRadius: 6,
-                maxBarThickness: 28,
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                datalabels: {
-                    anchor: 'end',
-                    align: 'end',
-                    color: '#333333',
-                    font: { weight: '600', size: 10 },
-                    formatter: (v) => v > 0 ? v : ''
-                }
-            },
-            scales: {
-                x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } },
-                y: { ticks: { font: { size: 9, weight: '500' } } }
-            }
-        },
-        plugins: [ChartDataLabels]
-    });
-
-    // Graphique 2: Enseignes (donut)
-    const enseignesCtx = document.getElementById('enseignesChart').getContext('2d');
-    const enseigneColors = ['#006633', '#c9a84c', '#2d7fc1', '#e67e22', '#8e44ad', '#1abc9c', '#e74c3c', '#3498db', '#2ecc71', '#f39c12'];
-    new Chart(enseignesCtx, {
-        type: 'doughnut',
-        data: {
-            labels: {{ enseignes_labels_json|safe }},
-            datasets: [{
-                data: {{ enseignes_counts_json|safe }},
-                backgroundColor: enseigneColors.slice(0, {{ enseignes_counts_json|safe|length }}),
-                borderWidth: 3,
-                borderColor: '#ffffff',
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '55%',
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { 
-                        padding: 12, 
-                        usePointStyle: true, 
-                        font: { size: 10, weight: '500' },
-                        boxWidth: 10,
-                    }
-                },
-                datalabels: {
-                    color: '#ffffff',
-                    font: { weight: '700', size: 11 },
-                    formatter: (value, ctx) => {
-                        let total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                        return total > 0 ? ((value / total) * 100).toFixed(0) + '%' : '';
-                    }
-                }
-            }
-        },
-        plugins: [ChartDataLabels]
-    });
-
-    // Graphique 3: Évolution mensuelle
-    const moisCtx = document.getElementById('moisChart').getContext('2d');
-    new Chart(moisCtx, {
-        type: 'line',
-        data: {
-            labels: {{ mois_labels_json|safe }},
-            datasets: [{
-                label: 'Produits',
-                data: {{ mois_counts_json|safe }},
-                borderColor: '#006633',
-                backgroundColor: 'rgba(0, 102, 51, 0.08)',
-                fill: true,
-                tension: 0.3,
-                pointBackgroundColor: '#006633',
-                pointBorderColor: '#ffffff',
-                pointBorderWidth: 2,
-                pointRadius: 4,
-                pointHoverRadius: 7,
-                borderWidth: 2.5,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                datalabels: {
-                    anchor: 'end',
-                    align: 'end',
-                    color: '#006633',
-                    font: { weight: '600', size: 9 },
-                    formatter: (v) => v > 0 ? v : ''
-                }
-            },
-            scales: {
-                y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 9 } } },
-                x: { ticks: { font: { size: 8 }, maxRotation: 30 } }
-            }
-        },
-        plugins: [ChartDataLabels]
-    });
-});
-</script>
 {% endblock %}
