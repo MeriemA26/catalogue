@@ -1,7 +1,7 @@
 /* =========================================================================
-   DÉLICE CATALOGUE APP — delice_style.css (v7)
-   Direction : Élégance bleue Délice, accents dorés, tons gris sophistiqués.
-   Suppression totale du corail. Design épuré, moderne et professionnel.
+   CATALOGUE MANAGER — delice_style.css (v9)
+   Direction : Élégance bleue Délice avec dégradé navbar, tons gris sophistiqués.
+   Design épuré, moderne et professionnel.
    ========================================================================= */
 
 :root {
@@ -28,12 +28,6 @@
   --gray-200: #e8e8f0;
   --gray-100: #f5f5fa;
   --gray-50: #fafaff;
-  
-  /* Or/Doré - Accent chaleureux */
-  --gold: #000000;
-  --gold-light: #f5edd6;
-  --gold-dark: #838287;
-  --gold-100: #f8f0e0;
   
   /* Fond et surface */
   --sky: #f4f8fd;
@@ -125,7 +119,7 @@ a:hover {
 }
 
 /* =========================================================================
-   NAVBAR — Dégradé bleu signature
+   NAVBAR — Dégradé bleu signature (gardé du CSS original)
    ========================================================================= */
 .navbar-delice {
   background: linear-gradient(135deg, var(--blue-900) 0%, var(--blue-600) 100%);
@@ -134,7 +128,7 @@ a:hover {
   top: 0;
   z-index: 1050;
   box-shadow: var(--shadow-md);
-  border-bottom: 3px solid var(--gold);
+  border-bottom: 3px solid var(--blue-400);
 }
 
 .navbar-delice .navbar-brand {
@@ -162,7 +156,7 @@ a:hover {
   font-weight: 600; 
   font-size: 0.88rem;
   padding: 0.5rem 1.1rem !important; 
-  border-radius: var(--radius-full, 9999px);
+  border-radius: 9999px;
   transition: all var(--transition-normal);
 }
 
@@ -204,9 +198,9 @@ a:hover {
 }
 
 .alert-delice-warning { 
-  background: var(--gold-100); 
-  border-left: 4px solid var(--gold); 
-  color: var(--gold-dark); 
+  background: var(--gray-100); 
+  border-left: 4px solid var(--gray-400); 
+  color: var(--gray-600); 
 }
 
 .alert-delice-info { 
@@ -253,7 +247,7 @@ a:hover {
 }
 
 .page-header h4 i { 
-  color: var(--gold); 
+  color: var(--blue-300); 
   margin-right: 0.5rem; 
 }
 
@@ -273,7 +267,7 @@ a:hover {
   color: var(--blue-800); 
   font-weight: 700; 
   font-family: var(--font-display);
-  border-radius: var(--radius-full, 9999px); 
+  border-radius: 9999px; 
   padding: 0.6rem 1.6rem; 
   border: none; 
   box-shadow: var(--shadow-sm);
@@ -292,12 +286,12 @@ a:hover {
 }
 
 /* =========================================================================
-   DASHBOARD — Cartes élégantes
+   DASHBOARD — Cartes avec âme (du CSS amélioré)
    ========================================================================= */
 .dashboard-grid { 
   display: grid; 
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); 
-  gap: 1rem; 
+  gap: 1.25rem; 
   margin-bottom: 1.5rem; 
 }
 
@@ -305,7 +299,7 @@ a:hover {
   background: var(--surface); 
   border: 1px solid var(--line); 
   border-radius: var(--radius-lg);
-  padding: 1.2rem 1.4rem; 
+  padding: 1.5rem 1.4rem; 
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-normal);
   position: relative;
@@ -323,8 +317,21 @@ a:hover {
   transition: background var(--transition-normal);
 }
 
+.stat-card::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -30%;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(24, 119, 201, 0.03) 0%, transparent 70%);
+  border-radius: 50%;
+  transition: all var(--transition-normal);
+  pointer-events: none;
+}
+
 .stat-card:hover { 
-  transform: translateY(-4px); 
+  transform: translateY(-6px); 
   box-shadow: var(--shadow-md);
 }
 
@@ -332,15 +339,20 @@ a:hover {
   background: var(--blue-600);
 }
 
+.stat-card:hover::after {
+  transform: scale(1.5);
+  opacity: 0.5;
+}
+
 .stat-card .stat-icon {
   display: inline-flex; 
   align-items: center; 
   justify-content: center;
-  width: 38px; 
-  height: 38px; 
+  width: 42px; 
+  height: 42px; 
   border-radius: var(--radius-sm); 
-  font-size: 0.95rem; 
-  margin-bottom: 0.5rem;
+  font-size: 1rem; 
+  margin-bottom: 0.75rem;
   background: var(--blue-100); 
   color: var(--blue-700);
   transition: all var(--transition-normal);
@@ -349,12 +361,13 @@ a:hover {
 .stat-card:hover .stat-icon {
   background: var(--blue-600);
   color: #fff;
+  transform: scale(1.05);
 }
 
 .stat-card .stat-number { 
   font-family: var(--font-display); 
   font-weight: 800; 
-  font-size: 1.8rem; 
+  font-size: 2rem; 
   color: var(--gray-900); 
   line-height: 1.1;
 }
@@ -362,7 +375,7 @@ a:hover {
 .stat-card .stat-label { 
   color: var(--gray-500); 
   font-weight: 600; 
-  font-size: 0.68rem; 
+  font-size: 0.7rem; 
   text-transform: uppercase; 
   letter-spacing: 0.06em; 
   margin-top: 0.2rem;
@@ -384,6 +397,10 @@ a:hover {
   background: rgba(255, 255, 255, 0.2);
 }
 
+.stat-card.primary::after {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
+}
+
 .stat-card.primary .stat-icon {
   background: rgba(255, 255, 255, 0.18);
   color: #fff;
@@ -403,11 +420,6 @@ a:hover {
 }
 
 /* Autres cartes avec accents */
-.stat-card.gold .stat-icon { 
-  background: var(--gold-100); 
-  color: var(--gold-dark); 
-}
-
 .stat-card.blue .stat-icon { 
   background: var(--blue-100); 
   color: var(--blue-700); 
@@ -427,17 +439,17 @@ a:hover {
   color: var(--blue-700); 
   font-weight: 700; 
   padding: 0.2rem 0.7rem; 
-  border-radius: var(--radius-full, 9999px); 
+  border-radius: 9999px; 
   font-size: 0.7rem;
 }
 
 .badge-delice-warning { 
   display: inline-block; 
-  background: var(--gold-100); 
-  color: var(--gold-dark); 
+  background: var(--gray-100); 
+  color: var(--gray-600); 
   font-weight: 700; 
   padding: 0.2rem 0.7rem; 
-  border-radius: var(--radius-full, 9999px); 
+  border-radius: 9999px; 
   font-size: 0.7rem; 
   margin-left: 0.3rem;
 }
@@ -475,7 +487,7 @@ a:hover {
 }
 
 .chart-box .chart-title i { 
-  color: var(--gold); 
+  color: var(--blue-400); 
   margin-right: 0.4rem; 
 }
 
@@ -516,7 +528,7 @@ a:hover {
   color: var(--blue-700); 
   font-weight: 700; 
   padding: 0.15rem 0.5rem; 
-  border-radius: var(--radius-full, 9999px); 
+  border-radius: 9999px; 
   font-size: 0.65rem; 
   text-transform: uppercase;
 }
@@ -546,6 +558,7 @@ a:hover {
 
 .card:hover {
   box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 .card-header { 
@@ -695,7 +708,7 @@ a:hover {
   font-weight: 700;
   font-size: 0.85rem;
   padding: 0.5rem 1.4rem;
-  border-radius: var(--radius-full, 9999px);
+  border-radius: 9999px;
   border: 1.5px solid transparent;
   transition: all var(--transition-normal);
   display: inline-flex;
@@ -762,7 +775,7 @@ a:hover {
   box-shadow: var(--shadow-sm);
 }
 
-/* Danger - Gris foncé (remplace corail) */
+/* Danger - Gris foncé */
 .btn-danger {
   background: var(--gray-600);
   color: #fff;
@@ -777,19 +790,19 @@ a:hover {
   box-shadow: 0 6px 20px rgba(74, 74, 106, 0.3);
 }
 
-/* Warning - Doré */
+/* Warning - Gris clair */
 .btn-warning {
-  background: var(--gold);
-  color: #fff;
-  border-color: var(--gold);
-  box-shadow: 0 4px 12px rgba(201, 168, 76, 0.25);
+  background: var(--gray-300);
+  color: var(--gray-800);
+  border-color: var(--gray-300);
+  box-shadow: 0 4px 12px rgba(180, 180, 200, 0.2);
 }
 
 .btn-warning:hover {
-  background: var(--gold-dark);
-  border-color: var(--gold-dark);
-  color: #fff;
-  box-shadow: 0 6px 20px rgba(201, 168, 76, 0.35);
+  background: var(--gray-400);
+  border-color: var(--gray-400);
+  color: var(--gray-900);
+  box-shadow: 0 6px 20px rgba(180, 180, 200, 0.3);
 }
 
 /* Dark - Gris très foncé */
@@ -826,6 +839,40 @@ a:hover {
 }
 
 .btn-outline-secondary:hover {
+  background: var(--gray-100);
+  color: var(--gray-800);
+  border-color: var(--gray-400);
+}
+
+.btn-outline-success {
+  background: transparent;
+  color: var(--blue-500);
+  border-color: var(--blue-500);
+}
+
+.btn-outline-success:hover {
+  background: var(--blue-500);
+  color: #fff;
+}
+
+.btn-outline-danger {
+  background: transparent;
+  color: var(--gray-600);
+  border-color: var(--gray-600);
+}
+
+.btn-outline-danger:hover {
+  background: var(--gray-600);
+  color: #fff;
+}
+
+.btn-outline-warning {
+  background: transparent;
+  color: var(--gray-600);
+  border-color: var(--gray-300);
+}
+
+.btn-outline-warning:hover {
   background: var(--gray-100);
   color: var(--gray-800);
   border-color: var(--gray-400);
@@ -912,7 +959,7 @@ a:hover {
 
 /* Groupes de boutons */
 .btn-group {
-  border-radius: var(--radius-full, 9999px);
+  border-radius: 9999px;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
 }
@@ -922,11 +969,11 @@ a:hover {
 }
 
 .btn-group .btn:first-child {
-  border-radius: var(--radius-full, 9999px) 0 0 var(--radius-full, 9999px) !important;
+  border-radius: 9999px 0 0 9999px !important;
 }
 
 .btn-group .btn:last-child {
-  border-radius: 0 var(--radius-full, 9999px) var(--radius-full, 9999px) 0 !important;
+  border-radius: 0 9999px 9999px 0 !important;
 }
 
 /* =========================================================================
@@ -935,7 +982,7 @@ a:hover {
 .badge {
   font-weight: 700;
   padding: 0.3rem 0.7rem;
-  border-radius: var(--radius-full, 9999px);
+  border-radius: 9999px;
   font-size: 0.7rem;
   display: inline-flex;
   align-items: center;
@@ -953,8 +1000,8 @@ a:hover {
 }
 
 .badge.bg-warning {
-  background: var(--gold-100) !important;
-  color: var(--gold-dark) !important;
+  background: var(--gray-100) !important;
+  color: var(--gray-600) !important;
 }
 
 .badge.bg-info {
@@ -972,7 +1019,7 @@ a:hover {
    ========================================================================= */
 .progress {
   background: var(--gray-100);
-  border-radius: var(--radius-full, 9999px);
+  border-radius: 9999px;
   overflow: hidden;
   height: 8px;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
@@ -980,7 +1027,7 @@ a:hover {
 
 .progress-bar {
   background: linear-gradient(90deg, var(--blue-500), var(--blue-600));
-  border-radius: var(--radius-full, 9999px);
+  border-radius: 9999px;
   transition: width var(--transition-slow);
   height: 100%;
 }
@@ -1000,7 +1047,7 @@ a:hover {
   color: rgba(255,255,255,0.7); 
   font-size: 0.85rem; 
   text-align: center;
-  border-top: 3px solid var(--gold);
+  border-top: 3px solid var(--blue-400);
 }
 
 .footer-delice .delice-logo { 
@@ -1013,7 +1060,7 @@ a:hover {
 }
 
 .footer-delice .delice-logo i { 
-  color: var(--gold); 
+  color: var(--blue-300); 
   margin-right: 0.4rem; 
 }
 
@@ -1063,7 +1110,7 @@ a:hover {
 }
 
 #filterSection .form-control {
-  border-radius: var(--radius-full, 9999px);
+  border-radius: 9999px;
 }
 
 #suggestionsContainer .badge {
@@ -1275,10 +1322,6 @@ a:hover {
   color: var(--blue-900);
 }
 
-.text-gold {
-  color: var(--gold);
-}
-
 .text-muted-light {
   color: var(--gray-400);
 }
@@ -1291,10 +1334,225 @@ a:hover {
   border-color: var(--blue-600) !important;
 }
 
-.border-gold {
-  border-color: var(--gold) !important;
-}
-
 .shadow-glow {
   box-shadow: 0 0 40px rgba(24, 119, 201, 0.12);
+}
+
+/* Bouton Éditer - Bleu uniquement au survol et clic */
+/* Bouton Éditer - Garde le cadre, change en bleu au survol/clic */
+.btn-edit {
+  background: transparent;
+  color: var(--gray-600);
+  border: 1.5px solid var(--gray-300);
+  transition: all var(--transition-normal);
+}
+
+.btn-edit:hover {
+  background: transparent;
+  color: var(--blue-500);
+  border-color: var(--blue-300);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(133, 196, 245, 0.2);
+}
+
+.btn-edit:active,
+.btn-edit:focus {
+  background: transparent !important;
+  color: var(--blue-300) !important;
+  border-color: var(--blue-300) !important;
+  box-shadow: 0 0 0 3px rgba(133, 196, 245, 0.25) !important;
+}
+
+/* Bouton Supprimer - Garde le cadre, change en rouge au survol/clic */
+.btn-delete {
+  background: transparent;
+  color: var(--gray-600);
+  border: 1.5px solid var(--gray-300);
+  transition: all var(--transition-normal);
+}
+
+.btn-delete:hover {
+  background: transparent;
+  color: #dc3545;
+  border-color: #dc3545;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
+}
+
+.btn-delete:active,
+.btn-delete:focus {
+  background: transparent !important;
+  color: #dc3545 !important;
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.25) !important;
+}
+
+/* Bouton Exporter Excel - Outline gris, devient bleu au survol/clic */
+.btn-export {
+  background: transparent;
+  color: var(--gray-600);
+  border: 1.5px solid var(--gray-300);
+  transition: all var(--transition-normal);
+}
+
+.btn-export:hover {
+  background: transparent;
+  color: var(--blue-500);
+  border-color: var(--blue-300);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(133, 196, 245, 0.2);
+}
+
+.btn-export:active,
+.btn-export:focus {
+  background: transparent !important;
+  color: var(--blue-300) !important;
+  border-color: var(--blue-300) !important;
+  box-shadow: 0 0 0 3px rgba(133, 196, 245, 0.25) !important;
+}
+
+/* Bouton Uploader - Outline gris, devient bleu au survol/clic */
+.btn-upload {
+  background: transparent;
+  color: var(--gray-600);
+  border: 1.5px solid var(--gray-300);
+  transition: all var(--transition-normal);
+}
+
+.btn-upload:hover {
+  background: transparent;
+  color: var(--blue-500);
+  border-color: var(--blue-300);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(133, 196, 245, 0.2);
+}
+
+.btn-upload:active,
+.btn-upload:focus {
+  background: transparent !important;
+  color: var(--blue-300) !important;
+  border-color: var(--blue-300) !important;
+  box-shadow: 0 0 0 3px rgba(133, 196, 245, 0.25) !important;
+}
+/* Bouton Nouveau catalogue - Outline gris, devient bleu au survol/clic */
+.btn-new-catalogue {
+  background: transparent;
+  color: var(--gray-600);
+  border: 1.5px solid var(--gray-300);
+  transition: all var(--transition-normal);
+}
+
+.btn-new-catalogue:hover {
+  background: transparent;
+  color: var(--blue-500);
+  border-color: var(--blue-300);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(133, 196, 245, 0.2);
+}
+
+.btn-new-catalogue:active,
+.btn-new-catalogue:focus {
+  background: transparent !important;
+  color: var(--blue-300) !important;
+  border-color: var(--blue-300) !important;
+  box-shadow: 0 0 0 3px rgba(133, 196, 245, 0.25) !important;
+}
+/* Modal de confirmation personnalisée - Version stable */
+.modal-confirm {
+    border-radius: var(--radius-lg);
+    border: none;
+    box-shadow: var(--shadow-lg);
+    /* Supprimer toute transition qui pourrait causer des vibrations */
+    transition: none !important;
+}
+
+.modal-confirm .modal-header {
+    border-bottom: none;
+    padding: 1.5rem 1.5rem 0.5rem 1.5rem;
+}
+
+.modal-confirm .modal-header .modal-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: var(--blue-900);
+}
+
+.modal-confirm .modal-header .btn-close {
+    background: var(--gray-100);
+    border-radius: 50%;
+    padding: 0.5rem;
+    opacity: 1;
+    /* Supprimer les transitions */
+    transition: none !important;
+}
+
+.modal-confirm .modal-header .btn-close:hover {
+    background: var(--gray-200);
+}
+
+.modal-confirm .modal-body {
+    padding: 1rem 1.5rem 1.5rem 1.5rem;
+    color: var(--gray-700);
+}
+
+.modal-confirm .modal-body .icon-warning {
+    font-size: 3rem;
+    color: #dc3545;
+    margin-bottom: 0.5rem;
+}
+
+.modal-confirm .modal-body .product-name {
+    font-weight: 700;
+    color: var(--blue-900);
+}
+
+.modal-confirm .modal-footer {
+    border-top: none;
+    padding: 0 1.5rem 1.5rem 1.5rem;
+    gap: 0.5rem;
+}
+
+.modal-confirm .modal-footer .btn {
+    font-weight: 600;
+    padding: 0.4rem 1.2rem;
+    border-radius: 9999px;
+    /* Supprimer les transitions qui causent des vibrations */
+    transition: none !important;
+}
+
+.modal-confirm .modal-footer .btn-cancel {
+    background: var(--gray-100);
+    color: var(--gray-700);
+    border: 1px solid var(--gray-200);
+}
+
+.modal-confirm .modal-footer .btn-cancel:hover {
+    background: var(--gray-200);
+    color: var(--gray-900);
+}
+
+.modal-confirm .modal-footer .btn-confirm-delete {
+    background: #dc3545;
+    color: #fff;
+    border-color: #dc3545;
+}
+
+.modal-confirm .modal-footer .btn-confirm-delete:hover {
+    background: #c82333;
+    border-color: #c82333;
+}
+
+/* Forcer la stabilité de la modale Bootstrap */
+.modal.fade .modal-dialog {
+    transition: transform 0.15s ease-out;
+}
+
+.modal.fade.show .modal-dialog {
+    transform: none;
+}
+
+/* Éviter les vibrations au survol des éléments de la modale */
+.modal * {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
 }

@@ -5,7 +5,7 @@
 <!-- En-tête -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h5 class="fw-bold mb-0">
-        <i class="fas fa-chart-simple text-primary me-2"></i>Tableau de bord
+        Tableau de bord
     </h5>
     <span class="text-muted small">{% now "d/m/Y" %}</span>
 </div>
@@ -40,7 +40,7 @@
         <div class="card border-0 shadow-sm">
             <div class="card-body text-center py-3">
                 <h6 class="text-muted small text-uppercase mb-1">À traiter</h6>
-                <h4 class="fw-bold mb-0 text-warning">{{ produits_a_traiter|default:0 }}</h4>
+                <h4 class="fw-bold mb-0" style="color: #2f93e6;">{{ produits_a_traiter|default:0 }}</h4>
             </div>
         </div>
     </div>
@@ -50,7 +50,7 @@
 <div class="card border-0 shadow-sm">
     <div class="card-header bg-white border-0">
         <h6 class="fw-bold mb-0">
-            <i class="fas fa-calendar-check text-success me-2"></i>Catalogues actifs
+            Catalogues actifs
         </h6>
     </div>
     <div class="card-body p-0">
@@ -67,7 +67,7 @@
                     </thead>
                     <tbody>
                         {% for catalogue in catalogues_actifs %}
-                        <tr onclick="location.href='{% url 'product_list' %}?catalogue={{ catalogue.id }}'" style="cursor:pointer;">
+                        <tr>
                             <td><strong>{{ catalogue.enseigne.nom }}</strong></td>
                             <td>
                                 <small>
