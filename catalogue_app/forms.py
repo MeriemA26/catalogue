@@ -4,12 +4,6 @@ from django.forms.widgets import ClearableFileInput
 from .models import Produit, Catalogue, Enseigne
 
 # 🔥 Widget personnalisé pour support multiple files
-# catalogue_app/forms.py
-from django import forms
-from django.forms.widgets import ClearableFileInput
-from .models import Produit, Catalogue, Enseigne
-
-# 🔥 Widget personnalisé pour support multiple files
 class MultipleFileInput(ClearableFileInput):
     allow_multiple_selected = True
 
@@ -51,8 +45,8 @@ class ProduitForm(forms.ModelForm):
         fields = [
             'nom', 'nom_fr', 'nom_ar', 'marque',
             'prix', 'prix_avant', 'pourcentage', 'remise',
-            'description', 'description_2', 'description_3',
-            'description_user_1', 'description_user_2',
+            'desc_1', 'desc_2', 'desc_3',
+            'note_1', 'note_2',
             'extrait_texte'
         ]
         widgets = {
@@ -64,11 +58,11 @@ class ProduitForm(forms.ModelForm):
             'prix_avant': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001', 'placeholder': '0.000'}),
             'pourcentage': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'placeholder': '0.0'}),
             'remise': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001', 'placeholder': '0.000'}),
-            'description': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Description'}),
-            'description_2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Description 2'}),
-            'description_3': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Description 3'}),
-            'description_user_1': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Description supplémentaire ajoutée par vous'}),
-            'description_user_2': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Description supplémentaire ajoutée par vous'}),
+            'desc_1': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Desc 1'}),
+            'desc_2': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Desc 2'}),
+            'desc_3': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Desc 3'}),
+            'note_1': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Note 1 (saisie manuelle)'}),
+            'note_2': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Note 2 (saisie manuelle)'}),
             'extrait_texte': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Texte extrait par OCR'}),
         }
         labels = {
@@ -80,11 +74,11 @@ class ProduitForm(forms.ModelForm):
             'prix_avant': 'Prix avant (DT)',
             'pourcentage': 'Pourcentage (%)',
             'remise': 'Remise (DT)',
-            'description': 'Description',
-            'description_2': 'Description 2',
-            'description_3': 'Description 3',
-            'description_user_1': 'Description supplémentaire 1',
-            'description_user_2': 'Description supplémentaire 2',
+            'desc_1': 'Desc 1',
+            'desc_2': 'Desc 2',
+            'desc_3': 'Desc 3',
+            'note_1': 'Note 1',
+            'note_2': 'Note 2',
             'extrait_texte': 'Texte extrait',
         }
     

@@ -87,9 +87,9 @@ FIELD_CLASS_MAP = {
     'price': 'prix',
     'price_before': 'prix_avant',
     'pct': 'pourcentage',
-    'description': 'description',      # ← Description principale
-    'description2': 'description_2',   # ← Description secondaire
-    'description3': 'description_3'    # ← Troisième description
+    'description': 'desc_1',      # ← Clé: description, Valeur: desc_1
+    'description2': 'desc_2',     # ← Clé: description2, Valeur: desc_2
+    'description3': 'desc_3'      # ← Clé: description3, Valeur: desc_3
 }
 
 def image_to_base64(image):
@@ -244,9 +244,9 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
             'prix_avant': None,
             'pourcentage': None,
             'remise': '',
-            'description': '',
-            'description_2': '',
-            'description_3': '',
+            'desc_1': '',
+            'desc_2': '',
+            'desc_3': '',
             'product_image_b64': image_to_base64(crop),
             'fields': [],
         }
@@ -305,8 +305,6 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
                     data['pourcentage'] = float(extracted_value)
                     extracted_pct = float(extracted_value)
                     print(f"   ✅ Pourcentage détecté: {extracted_value}%")
-           # Dans pipeline.py, modifier la partie description :
-
             elif class_name == 'description':
                 # 🔥 Utiliser le reader latin pour les descriptions (peut contenir du français)
                 extracted_value = extract_text(roi, reader_latin)
@@ -321,27 +319,31 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
                 if extracted_value:
                     extracted_value = re.sub(r'[^\w\s\u0600-\u06FF\.\,\-\(\)\:]+', ' ', extracted_value)
                     extracted_value = re.sub(r'\s+', ' ', extracted_value).strip()
-                data['description'] = extracted_value
+                data['desc_1'] = extracted_value
                 if extracted_value:
-                    print(f"   ✅ Description nettoyée: {extracted_value[:50]}...")
+                    print(f"   ✅ Desc 1 nettoyée: {extracted_value[:50]}...")
                     
-                elif class_name == 'description2':
-                    # 🔥 Même logique pour description2
-                    extracted_value = extract_text(roi, reader_latin)
-                    if not extracted_value:
-                        extracted_value = extract_text(roi, reader_ar)
-                    if not extracted_value:
-                        extracted_value = extract_text_mixed(roi, reader_latin, reader_ar)
-                    data['description_2'] = extracted_value
+            elif class_name == 'description2':
+                # 🔥 Même logique pour description2
+                extracted_value = extract_text(roi, reader_latin)
+                if not extracted_value:
+                    extracted_value = extract_text(roi, reader_ar)
+                if not extracted_value:
+                    extracted_value = extract_text_mixed(roi, reader_latin, reader_ar)
+                data['desc_2'] = extracted_value
+                if extracted_value:
+                    print(f"   ✅ Desc 2 nettoyée: {extracted_value[:50]}...")
                     
-                elif class_name == 'description3':
-                    # 🔥 Même logique pour description3
-                    extracted_value = extract_text(roi, reader_latin)
-                    if not extracted_value:
-                        extracted_value = extract_text(roi, reader_ar)
-                    if not extracted_value:
-                        extracted_value = extract_text_mixed(roi, reader_latin, reader_ar)
-                    data['description_3'] = extracted_value
+            elif class_name == 'description3':
+                # 🔥 Même logique pour description3
+                extracted_value = extract_text(roi, reader_latin)
+                if not extracted_value:
+                    extracted_value = extract_text(roi, reader_ar)
+                if not extracted_value:
+                    extracted_value = extract_text_mixed(roi, reader_latin, reader_ar)
+                data['desc_3'] = extracted_value
+                if extracted_value:
+                    print(f"   ✅ Desc 3 nettoyée: {extracted_value[:50]}...")
         
         # Calcul des prix
         # 🔥 RÈGLE D'OR : si prix ET prix_avant ont TOUS LES DEUX été lus directement par l'OCR,
@@ -377,9 +379,9 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
             data['prix_avant'] = extracted_prix_avant
         
         # Détecter la langue des descriptions
-        description_lang = _detect_language(data['description'])
-        description_2_lang = _detect_language(data['description_2'])
-        description_3_lang = _detect_language(data['description_3'])
+        desc_1_lang = _detect_language(data['desc_1'])
+        desc_2_lang = _detect_language(data['desc_2'])
+        desc_3_lang = _detect_language(data['desc_3'])
         
         # Log des données extraites
         print(f"\n📦 Produit {idx+1}:")
@@ -389,10 +391,10 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
         print(f"  Prix: {data['prix'] if data['prix'] is not None else '(non détecté)'}")
         print(f"  Prix avant: {data['prix_avant'] if data['prix_avant'] is not None else '(non détecté)'}")
         print(f"  Pourcentage: {data['pourcentage'] if data['pourcentage'] is not None else '(non détecté)'}")
-        print(f"  Description: {(data['description'][:50] + '...') if data['description'] else '(non détecté)'} [{description_lang}]")
-        print(f"  Description 2: {(data['description_2'][:50] + '...') if data['description_2'] else '(non détecté)'} [{description_2_lang}]")
-        print(f"  Description 3: {(data['description_3'][:50] + '...') if data['description_3'] else '(non détecté)'} [{description_3_lang}]")
-        
+        print(f"  Desc 1: {(data['desc_1'][:50] + '...') if data['desc_1'] else '(non détecté)'} [{desc_1_lang}]")
+        print(f"  Desc 2: {(data['desc_2'][:50] + '...') if data['desc_2'] else '(non détecté)'} [{desc_2_lang}]")
+        print(f"  Desc 3: {(data['desc_3'][:50] + '...') if data['desc_3'] else '(non détecté)'} [{desc_3_lang}]")
+
         products.append(data)
     
     return products

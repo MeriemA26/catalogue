@@ -109,9 +109,9 @@ class OCRProcessor:
                             remise = self._clean_value(remise_value)
                     
                     # Nettoyer les descriptions
-                    description = self._clean_description(produit.get('description', ''))
-                    description_2 = self._clean_description(produit.get('description_2', ''))
-                    description_3 = self._clean_description(produit.get('description_3', ''))
+                    desc_1 = self._clean_description(produit.get('desc_1', ''))
+                    desc_2 = self._clean_description(produit.get('desc_2', ''))
+                    desc_3 = self._clean_description(produit.get('desc_3', ''))
                     
                     # ⚠️ IMPORTANT: Récupérer les noms
                     nom_fr = produit.get('nom_fr', '').strip()
@@ -133,22 +133,22 @@ class OCRProcessor:
                         nom_produit = f"Produit {idx + 1}"
                     
                     print(f"  Nom final: '{nom_produit}'")
-                    print(f"  Description nettoyée: '{description[:50]}...'")
+                    print(f"  Desc 1: '{desc_1[:50]}...'")
                     
                     resultats.append({
                         'id': produit.get('id', idx),
                         'nom': nom_produit,       # Pour l'affichage
-                        'nom_fr': nom_fr,         # ⚠️ Nom FR exact
-                        'nom_ar': nom_ar,         # ⚠️ Nom AR exact
+                        'nom_fr': nom_fr,       
+                        'nom_ar': nom_ar,         
                         'marque': produit.get('marque', ''),
                         'prix': prix,
                         'prix_avant': prix_avant,
                         'pourcentage': pourcentage,
                         'remise': remise,
-                        'description': description,
-                        'description_2': description_2,
-                        'description_3': description_3,
-                        'extrait_texte': f"Marque: {produit.get('marque', '')} - Description: {description}",
+                        'desc_1': desc_1,
+                        'desc_2': desc_2,
+                        'desc_3': desc_3,
+                        'extrait_texte': f"Marque: {produit.get('marque', '')} - Description: {desc_1}",
                         'product_image_b64': produit.get('product_image_b64'),
                     })
                     
@@ -164,8 +164,6 @@ class OCRProcessor:
             traceback.print_exc()
             return []
     
-# catalogue_app/utils.py - extraire_texte_fallback CORRIGÉ
-
     def extraire_texte_fallback(self, image_path):
         """Méthode de fallback utilisant EasyOCR avec les deux readers"""
         try:
@@ -228,9 +226,9 @@ class OCRProcessor:
             'prix_avant': self._clean_value(prix_avant_trouves[0] if prix_avant_trouves else None),
             'pourcentage': self._clean_percentage(pourcentages_trouves[0] if pourcentages_trouves else None),
             'remise': self._clean_value(remises_trouves[0] if remises_trouves else None),
-            'description': texte_clean[:200],
-            'description_2': '',
-            'description_3': '',
+            'desc_1': texte_clean[:200],
+            'desc_2': '',
+            'desc_3': '',
             'extrait_texte': texte_clean[:500]
         }
         

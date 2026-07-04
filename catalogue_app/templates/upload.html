@@ -164,11 +164,11 @@
                      "prix": "{{ produit.prix|default:''|stringformat:'s' }}",
                      "prix_avant": "{{ produit.prix_avant|default:''|stringformat:'s' }}",
                      "pourcentage": "{{ produit.pourcentage|default:''|stringformat:'s' }}",
-                     "description": "{{ produit.description|default:''|escapejs }}",
-                     "description_2": "{{ produit.description_2|default:''|escapejs }}",
-                     "description_3": "{{ produit.description_3|default:''|escapejs }}",
-                     "description_user_1": "{{ produit.description_user_1|default:''|escapejs }}",
-                     "description_user_2": "{{ produit.description_user_2|default:''|escapejs }}",
+                     "desc_1": "{{ produit.desc_1|default:''|escapejs }}",
+                     "desc_2": "{{ produit.desc_2|default:''|escapejs }}",
+                     "desc_3": "{{ produit.desc_3|default:''|escapejs }}",
+                     "note_1": "{{ produit.note_1|default:''|escapejs }}",
+                     "note_2": "{{ produit.note_2|default:''|escapejs }}",
                      "image_url": "{% if produit.image_produit %}{{ produit.image_produit.url }}{% endif %}"
                  }{% if not forloop.last %},{% endif %}
                  {% endif %}
@@ -297,11 +297,11 @@ $(document).ready(function () {
             '<td>' + prixHtml + '</td>' +
             '<td>' + prixAvantHtml + '</td>' +
             '<td>' + pctHtml + '</td>' +
-            '<td>' + escHtml(p.description) + '</td>' +
-            '<td>' + escHtml(p.description_2) + '</td>' +
-            '<td>' + escHtml(p.description_3) + '</td>' +
-            '<td>' + escHtml(p.description_user_1) + '</td>' +
-            '<td>' + escHtml(p.description_user_2) + '</td>' +
+            '<td>' + escHtml(p.desc_1) + '</td>' +
+            '<td>' + escHtml(p.desc_2) + '</td>' +
+            '<td>' + escHtml(p.desc_3) + '</td>' +
+            '<td>' + escHtml(p.note_1) + '</td>' +
+            '<td>' + escHtml(p.note_2) + '</td>' +
             '<td><a href="/product/edit/' + p.id + '/" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a></td>'
         );
 
@@ -339,8 +339,8 @@ $(document).ready(function () {
             '<th><input type="checkbox" id="selectAll2"></th>' +
             '<th>#</th><th>🖼️ Image</th><th>Nom (FR)</th><th>Nom (AR)</th>' +
             '<th>Marque</th><th>Prix</th><th>Prix Avant</th><th>%</th>' +
-            '<th>Description</th><th>Description 2</th><th>Description 3</th>' +
-            '<th>Description suppl. 1</th><th>Description suppl. 2</th><th>Actions</th>' +
+            '<th>Desc 1</th><th>Desc 2</th><th>Desc 3</th>' +
+            '<th>Note 1</th><th>Note 2</th><th>Actions</th>' +
             '</tr></thead>' +
             '<tbody id="productTableBody">' +
             '</tbody>' +
@@ -735,7 +735,7 @@ $(document).ready(function () {
                 $tableBody.empty(); // Vider toutes les lignes
                 $tableBody.append(
                     '<tr id="no-result-row">' +
-                    '<td colspan="13" class="text-center text-muted py-4">' +
+                    '<td colspan="15" class="text-center text-muted py-4">' +
                     '<i class="fas fa-search fa-2x d-block mb-2"></i>' +
                     'Aucun produit trouvé pour la marque <strong>"' + searchTerm + '"</strong><br>' +
                     '<small>Essayez une autre marque ou réinitialisez le filtre</small>' +
@@ -835,11 +835,11 @@ $(document).ready(function () {
                 '<td>' + prixHtml + '</td>' +
                 '<td>' + prixAvantHtml + '</td>' +
                 '<td>' + pctHtml + '</td>' +
-                '<td>' + escHtml(p.description) + '</td>' +
-                '<td>' + escHtml(p.description_2) + '</td>' +
-                '<td>' + escHtml(p.description_3) + '</td>' +
-                '<td>' + escHtml(p.description_user_1) + '</td>' +
-                '<td>' + escHtml(p.description_user_2) + '</td>' +
+                '<td>' + escHtml(p.desc_1) + '</td>' +
+                '<td>' + escHtml(p.desc_2) + '</td>' +
+                '<td>' + escHtml(p.desc_3) + '</td>' +
+                '<td>' + escHtml(p.note_1) + '</td>' +
+                '<td>' + escHtml(p.note_2) + '</td>' +
                 '<td><a href="/product/edit/' + p.id + '/" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a></td>'
             );
         }

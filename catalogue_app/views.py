@@ -200,9 +200,9 @@ def upload(request):
                             print(f"  Prix Avant: {data.get('prix_avant', 'NON TROUVE')}")
                             print(f"  %: {data.get('pourcentage', 'NON TROUVE')}")
                             print(f"  Remise: {data.get('remise', 'NON TROUVE')}")
-                            print(f"  Description: {data.get('description', 'NON TROUVE')[:50]}...")
-                            print(f"  Description 2: {data.get('description_2', 'NON TROUVE')[:50]}...")
-                            print(f"  Description 3: {data.get('description_3', 'NON TROUVE')[:50]}...")
+                            print(f"  Desc_1: {data.get('desc_1', 'NON TROUVE')[:50]}...")
+                            print(f"  Desc_2: {data.get('desc_2', 'NON TROUVE')[:50]}...")
+                            print(f"  Desc_3: {data.get('desc_3', 'NON TROUVE')[:50]}...")
                         print("=" * 80 + "\n")
                         
                     except Exception as e:
@@ -247,14 +247,14 @@ def upload(request):
                                     nom_affiche = f"Produit {idx}_{pidx + 1}"
                                 
                                 # Nettoyer les descriptions
-                                description = data.get('description', '') or ''
-                                description_2 = data.get('description_2', '') or ''
-                                description_3 = data.get('description_3', '') or ''
+                                desc_1= data.get('desc_1', '') or ''
+                                desc_2 = data.get('desc_2', '') or ''
+                                desc_3 = data.get('desc_3', '') or ''
                                 
-                                if not description and (description_2 or description_3):
-                                    description = description_2
-                                    description_2 = description_3
-                                    description_3 = ''
+                                if not desc_1 and (desc_2 or desc_3):
+                                    desc_1 = desc_2
+                                    desc_2 = desc_3
+                                    desc_3 = ''
                                 
                                 remise_val = data.get('remise')
                                 if isinstance(remise_val, str) and '%' in remise_val:
@@ -270,9 +270,9 @@ def upload(request):
                                     prix_avant=data.get('prix_avant'),
                                     pourcentage=data.get('pourcentage'),
                                     remise=remise_val if remise_val else None,
-                                    description=description if description else None,
-                                    description_2=description_2 if description_2 else None,
-                                    description_3=description_3 if description_3 else None,
+                                    desc_1=desc_1 if desc_1 else None,
+                                    desc_2=desc_2 if desc_2 else None,
+                                    desc_3=desc_3 if desc_3 else None,
                                     extrait_texte=data.get('extrait_texte', '') if data.get('extrait_texte') else None,
                                     image_produit=image_produit,
                                 )
@@ -539,7 +539,7 @@ def upload_stream(request):
                     data = {
                         'nom_fr': '', 'nom_ar': '', 'marque': '',
                         'prix': None, 'prix_avant': None, 'pourcentage': None,
-                        'remise': '', 'description': '', 'description_2': '', 'description_3': '',
+                        'remise': '', 'desc_1': '', 'desc_2': '', 'desc_3': '',
                         'product_image_b64': image_to_base64(crop),
                     }
 
@@ -587,13 +587,18 @@ def upload_stream(request):
                                 data['pourcentage'] = Decimal(v)
                                 extracted_pct = Decimal(v)
                                 print(f"  ✅ Pourcentage extrait: {v} -> {data['pourcentage']}")
+                        # ✅ CORRIGÉ :
                         elif class_name in ('description', 'description2', 'description3'):
                             v = extract_text(roi, reader_latin) or extract_text(roi, reader_ar)
                             if v:
                                 v = re.sub(r'[^\w\s\u0600-\u06FF\.\,\-\(\)\:]+', ' ', v)
                                 v = re.sub(r'\s+', ' ', v).strip()
-                            key = {'description': 'description', 'description2': 'description_2', 'description3': 'description_3'}[class_name]
-                            data[key] = v or ''
+                            if class_name == 'description':
+                                data['desc_1'] = v or ''
+                            elif class_name == 'description2':
+                                data['desc_2'] = v or ''
+                            elif class_name == 'description3':
+                                data['desc_3'] = v or ''
 
                     # 🔥 LOGS DES VALEURS EXTRAITES
                     print(f"\n🔍 PRODUIT {idx+1} - VALEURS EXTRAITES BRUTES:")
@@ -651,11 +656,11 @@ def upload_stream(request):
                     nom_ar = data['nom_ar'].strip()
                     nom_affiche = nom_fr or nom_ar or f"Produit {idx + 1}"
 
-                    description   = data.get('description', '') or ''
-                    description_2 = data.get('description_2', '') or ''
-                    description_3 = data.get('description_3', '') or ''
-                    if not description and (description_2 or description_3):
-                        description, description_2, description_3 = description_2, description_3, ''
+                    desc_1   = data.get('desc_1', '') or ''
+                    desc_2 = data.get('desc_2', '') or ''
+                    desc_3 = data.get('desc_3', '') or ''
+                    if not desc_1 and (desc_2 or desc_3):
+                        desc_1, desc_2, desc_3 = desc_2, desc_3, ''
 
                     remise_val = data.get('remise')
                     if isinstance(remise_val, str) and '%' in remise_val:
@@ -677,7 +682,7 @@ def upload_stream(request):
                     print(f"  data['prix_avant']: {data.get('prix_avant')} (type: {type(data.get('prix_avant'))})")
                     print(f"  data['pourcentage']: {data.get('pourcentage')} (type: {type(data.get('pourcentage'))})")
                     print(f"  data['remise']: {data.get('remise')}")
-                    print(f"  data['description']: {data.get('description')[:50] if data.get('description') else 'None'}")
+                    print(f"  data['desc_1']: {data.get('desc_1')[:50] if data.get('desc_1') else 'None'}")
                     print(f"{'='*60}")
 
                     # 🔥 Créer le produit avec Decimal pour prix et prix_avant
@@ -691,10 +696,10 @@ def upload_stream(request):
                         prix_avant=float(data.get('prix_avant')) if data.get('prix_avant') is not None else None,
                         pourcentage=float(data.get('pourcentage')) if data.get('pourcentage') is not None else None,
                         remise=remise_val or None,
-                        description=description or None,
-                        description_2=description_2 or None,
-                        description_3=description_3 or None,
-                        extrait_texte=f"Marque: {data.get('marque','')} - {description}" or None,
+                        desc_1=desc_1 or None,
+                        desc_2=desc_2 or None,
+                        desc_3=desc_3 or None,
+                        extrait_texte=f"Marque: {data.get('marque','')} - {desc_1}" or None,
                         image_produit=image_produit,
                     )
                     
@@ -744,9 +749,9 @@ def upload_stream(request):
                         'prix': prix_val,
                         'prix_avant': prix_avant_val,
                         'pourcentage': pct_val,
-                        'description': description[:80] if description else '',
-                        'description_2': description_2[:80] if description_2 else '',
-                        'description_3': description_3[:80] if description_3 else '',
+                        'desc_1': desc_1[:80] if desc_1 else '',
+                        'desc_2': desc_2[:80] if desc_2 else '',
+                        'desc_3': desc_3[:80] if desc_3 else '',
                         'image_url': produit.image_produit.url if produit.image_produit else '',
                     }
                     yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
@@ -1242,7 +1247,7 @@ def get_product_details(request, product_id):
                 'prix_avant': str(produit.prix_avant) if produit.prix_avant else None,
                 'pourcentage': str(produit.pourcentage) if produit.pourcentage else None,
                 'remise': str(produit.remise) if produit.remise else None,
-                'description': produit.description,
+                'desc_1': produit.desc_1,
                 'extrait_texte': produit.extrait_texte,
                 'est_sauvegarde': produit.est_sauvegarde,
                 'image_url': produit.image_produit.url if produit.image_produit else None,
@@ -1281,9 +1286,9 @@ def get_recent_products(request):
             'prix': str(p.prix) if p.prix else None,
             'prix_avant': str(p.prix_avant) if p.prix_avant else None,
             'pourcentage': str(p.pourcentage) if p.pourcentage else None,
-            'description': p.description,
-            'description_2': p.description_2,
-            'description_3': p.description_3,
+            'desc_1': p.desc_1,
+            'desc_2': p.desc_2,
+            'desc_3': p.desc_3,
             'image_url': p.image_produit.url if p.image_produit else None,
         })
     return JsonResponse({'products': data})
@@ -1308,11 +1313,11 @@ def add_product(request):
         nom_fr = request.POST.get('nom_fr', '').strip()
         nom_ar = request.POST.get('nom_ar', '').strip()
         marque = request.POST.get('marque', '').strip()
-        description = request.POST.get('description', '').strip()
-        description_2 = request.POST.get('description_2', '').strip()
-        description_3 = request.POST.get('description_3', '').strip()
-        description_user_1 = request.POST.get('description_user_1', '').strip()
-        description_user_2 = request.POST.get('description_user_2', '').strip()       
+        desc_1 = request.POST.get('desc_1', '').strip()
+        desc_2 = request.POST.get('desc_2', '').strip()
+        desc_3 = request.POST.get('desc_3', '').strip()
+        note_1 = request.POST.get('note_1', '').strip()
+        note_2 = request.POST.get('note_2', '').strip()
         # Convertir les prix
         prix = None
         if request.POST.get('prix'):
@@ -1355,11 +1360,11 @@ def add_product(request):
             prix=prix,
             prix_avant=prix_avant,
             pourcentage=pourcentage,
-            description=description or None,
-            description_2=description_2 or None,
-            description_3=description_3 or None,
-            description_user_1=description_user_1 or None, 
-            description_user_2=description_user_2 or None,
+            desc_1=desc_1 or None,
+            desc_2=desc_2 or None,
+            desc_3=desc_3 or None,
+            note_1=note_1 or None, 
+            note_2=note_2 or None,
             image_produit=image_produit,
             est_sauvegarde=False,
         )
@@ -1542,8 +1547,8 @@ def export_products_excel(request):
     headers = [
         "#", "Nom (FR)", "Nom (AR)", "Marque", 
         "Prix (DT)", "Prix avant (DT)", "Pourcentage (%)", "Remise (DT)",
-        "Description", "Description 2", "Description 3",
-        "Description suppl. 1", "Description suppl. 2"
+        "Desc_1", "Desc_2", "Desc_3",
+        "Note 1", "Note 2"
     ]
     
     # 🔥 Style pour les en-têtes
@@ -1575,11 +1580,11 @@ def export_products_excel(request):
         ws.cell(row=row_idx, column=6, value=float(produit.prix_avant) if produit.prix_avant else None)
         ws.cell(row=row_idx, column=7, value=float(produit.pourcentage) if produit.pourcentage else None)
         ws.cell(row=row_idx, column=8, value=float(produit.remise) if produit.remise else None)
-        ws.cell(row=row_idx, column=9, value=produit.description or '')
-        ws.cell(row=row_idx, column=10, value=produit.description_2 or '')
-        ws.cell(row=row_idx, column=11, value=produit.description_3 or '')
-        ws.cell(row=row_idx, column=12, value=produit.description_user_1 or '')
-        ws.cell(row=row_idx, column=13, value=produit.description_user_2 or '')
+        ws.cell(row=row_idx, column=9, value=produit.desc_1 or '')
+        ws.cell(row=row_idx, column=10, value=produit.desc_2 or '')
+        ws.cell(row=row_idx, column=11, value=produit.desc_3 or '')
+        ws.cell(row=row_idx, column=12, value=produit.note_1 or '')
+        ws.cell(row=row_idx, column=13, value=produit.note_2 or '')
         
         # 🔥 Appliquer le style aux cellules
         for col in range(1, len(headers) + 1):

@@ -114,11 +114,11 @@
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
-                            <td>{{ produit.description|default:'-'|truncatechars:35 }}</td>
-                            <td>{{ produit.description_2|default:'-'|truncatechars:25 }}</td>
-                            <td>{{ produit.description_3|default:'-'|truncatechars:25 }}</td>
-                            <td>{{ produit.description_user_1|default:'-'|truncatechars:25 }}</td>
-                            <td>{{ produit.description_user_2|default:'-'|truncatechars:25 }}</td>
+                            <td>{{ produit.desc_1|default:'-'|truncatechars:35 }}</td>
+                            <td>{{ produit.desc_2|default:'-'|truncatechars:25 }}</td>
+                            <td>{{ produit.desc_3|default:'-'|truncatechars:25 }}</td>
+                            <td>{{ produit.note_1|default:'-'|truncatechars:25 }}</td>
+                            <td>{{ produit.note_2|default:'-'|truncatechars:25 }}</td>
                             <td>
                                 <div class="d-flex gap-1 justify-content-center">
                                     <a href="{% url 'edit_product_saved' produit.id %}" 

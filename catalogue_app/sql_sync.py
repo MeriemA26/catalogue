@@ -41,11 +41,11 @@ class SQLServerSync:
                     prix DECIMAL(10,3) NULL,
                     prix_avant DECIMAL(10,3) NULL,
                     pourcentage DECIMAL(5,2) NULL,
-                    description NVARCHAR(MAX) NULL,
-                    description_2 NVARCHAR(MAX) NULL,
-                    description_3 NVARCHAR(MAX) NULL,
-                    description_user_1 NVARCHAR(MAX) NULL,
-                    description_user_2 NVARCHAR(MAX) NULL,
+                    desc_1 NVARCHAR(MAX) NULL,
+                    desc_2 NVARCHAR(MAX) NULL,
+                    desc_3 NVARCHAR(MAX) NULL,
+                    note_1 NVARCHAR(MAX) NULL,
+                    note_2 NVARCHAR(MAX) NULL,
                     catalogue_id INT NULL
                 )
             """)
@@ -105,8 +105,6 @@ class SQLServerSync:
         finally:
             conn.close()
     
-# catalogue_app/sql_sync.py
-
     def sync_produits(self, produits):
         conn = self.get_connection()
         if not conn:
@@ -130,18 +128,18 @@ class SQLServerSync:
                             prix = ?,
                             prix_avant = ?,
                             pourcentage = ?,
-                            description = ?,
-                            description_2 = ?,
-                            description_3 = ?,
-                            description_user_1 = ?,
-                            description_user_2 = ?,
+                            desc_1 = ?,
+                            desc_2 = ?,
+                            desc_3 = ?,
+                            note_1 = ?,
+                            note_2 = ?,
                             catalogue_id = ?
                     WHEN NOT MATCHED THEN
                         INSERT (
                             id_sqlite, nom_fr, nom_ar, marque,
                             prix, prix_avant, pourcentage,
-                            description, description_2, description_3,
-                            description_user_1, description_user_2,
+                            desc_1, desc_2, desc_3,
+                            note_1, note_2,
                             catalogue_id
                         ) VALUES (
                             ?, ?, ?, ?,
@@ -159,11 +157,11 @@ class SQLServerSync:
                     produit.prix,
                     produit.prix_avant,
                     produit.pourcentage,
-                    produit.description or '',
-                    produit.description_2 or '',
-                    produit.description_3 or '',
-                    produit.description_user_1 or '',
-                    produit.description_user_2 or '',
+                    produit.desc_1 or '',
+                    produit.desc_2 or '',
+                    produit.desc_3 or '',
+                    produit.note_1 or '',
+                    produit.note_2 or '',
                     produit.catalogue_id,
                     # INSERT
                     produit.id,
@@ -173,11 +171,11 @@ class SQLServerSync:
                     produit.prix,
                     produit.prix_avant,
                     produit.pourcentage,
-                    produit.description or '',
-                    produit.description_2 or '',
-                    produit.description_3 or '',
-                    produit.description_user_1 or '',
-                    produit.description_user_2 or '',
+                    produit.desc_1 or '',
+                    produit.desc_2 or '',
+                    produit.desc_3 or '',
+                    produit.note_1 or '',
+                    produit.note_2 or '',
                     produit.catalogue_id
                 ))
             
@@ -190,6 +188,7 @@ class SQLServerSync:
             return False
         finally:
             conn.close()
+    
     def delete_produits(self, produits_ids):
         """Supprime les produits de SQL Server par id_sqlite"""
         conn = self.get_connection()
@@ -245,8 +244,8 @@ class SQLServerSync:
                     id, id_sqlite,
                     nom_fr, nom_ar, marque,
                     prix, prix_avant, pourcentage,
-                    description, description_2, description_3,
-                    description_user_1, description_user_2,
+                    desc_1, desc_2, desc_3,
+                    note_1, note_2,
                     catalogue_id
                 FROM extraction 
                 ORDER BY id_sqlite
@@ -264,11 +263,11 @@ class SQLServerSync:
                     'prix': row[5],
                     'prix_avant': row[6],
                     'pourcentage': row[7],
-                    'description': row[8],
-                    'description_2': row[9],
-                    'description_3': row[10],
-                    'description_user_1': row[11],
-                    'description_user_2': row[12],
+                    'desc_1': row[8],
+                    'desc_2': row[9],
+                    'desc_3': row[10],
+                    'note_1': row[11],
+                    'note_2': row[12],
                     'catalogue_id': row[13]
                 })
             

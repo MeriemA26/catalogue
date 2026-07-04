@@ -67,13 +67,11 @@ class Produit(models.Model):
     prix = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, verbose_name="Prix (TND)")
     prix_avant = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, verbose_name="Prix avant (TND)")
     pourcentage = models.DecimalField(max_digits=5, decimal_places=0, null=True, blank=True, verbose_name="%")
-    description = models.TextField(blank=True, null=True, verbose_name="Description")
-    description_2 = models.TextField(blank=True, null=True, verbose_name="Description 2")
-    description_3 = models.TextField(blank=True, null=True, verbose_name="Description 3")
-
-    # 🆕 Champs de description manuelle (saisis par l'utilisateur, pas extraits par les modèles)
-    description_user_1 = models.TextField(blank=True, null=True, verbose_name="Description supplémentaire 1")
-    description_user_2 = models.TextField(blank=True, null=True, verbose_name="Description supplémentaire 2")
+    desc_1 = models.TextField(blank=True, null=True, verbose_name="Desc 1")
+    desc_2 = models.TextField(blank=True, null=True, verbose_name="Desc 2")
+    desc_3 = models.TextField(blank=True, null=True, verbose_name="Desc 3")
+    note_1 = models.TextField(blank=True, null=True, verbose_name="Note 1")
+    note_2 = models.TextField(blank=True, null=True, verbose_name="Note 2")
     
     # Champs supplémentaires
     remise = models.DecimalField(max_digits=10, decimal_places=3, null=True, blank=True, verbose_name="Remise (TND)")
