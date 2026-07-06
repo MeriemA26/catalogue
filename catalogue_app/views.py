@@ -1297,20 +1297,59 @@ def get_recent_products(request):
             'image_url': p.image_produit.url if p.image_produit else None,
         })
     return JsonResponse({'products': data})
-
 def add_product(request):
     """Page pour ajouter un produit manuellement (sans extraction)"""
     
-    # Vérifier si un catalogue actif existe
+    # 🔥 Récupérer le catalogue depuis la session
     catalogue_id = request.session.get('active_catalogue_id')
-    if not catalogue_id:
-        messages.error(request, "❌ Aucun catalogue actif. Veuillez d'abord uploader une image.")
-        return redirect('upload')
+    catalogue = None
     
-    try:
-        catalogue = Catalogue.objects.get(id=catalogue_id)
-    except Catalogue.DoesNotExist:
-        messages.error(request, "❌ Catalogue non trouvé.")
+    # 🔥 Si un catalogue existe dans la session
+    if catalogue_id:
+        try:
+            catalogue = Catalogue.objects.get(id=catalogue_id)
+        except Catalogue.DoesNotExist:
+            catalogue = None
+    
+    # 🔥 SI PAS DE CATALOGUE EN SESSION, CHERCHER DANS LA BASE
+    if not catalogue:
+        # Chercher le dernier catalogue avec des produits non sauvegardés
+        dernier_produit = Produit.objects.filter(est_sauvegarde=False).order_by('-created_at').first()
+        if dernier_produit and dernier_produit.catalogue:
+            catalogue = dernier_produit.catalogue
+            # 🔥 Important : Sauvegarder dans la session pour la prochaine fois
+            request.session['active_catalogue_id'] = catalogue.id
+            print(f"✅ Catalogue récupéré depuis la base: ID {catalogue.id}")
+    
+    # 🔥 SI TOUJOURS PAS DE CATALOGUE, CRÉER UN CATALOGUE TEMPORAIRE
+    if not catalogue:
+        try:
+            from datetime import datetime, timedelta
+            from django.utils import timezone
+            
+            enseigne = Enseigne.objects.first()
+            if not enseigne:
+                enseigne = Enseigne.objects.create(nom='autre')
+            
+            today = datetime.now().date()
+            catalogue = Catalogue.objects.create(
+                enseigne=enseigne,
+                date_debut=today,
+                date_fin=today + timedelta(days=7),
+                date_upload=timezone.now(),
+                note="Catalogue temporaire"
+            )
+            request.session['active_catalogue_id'] = catalogue.id
+            print(f"✅ Catalogue temporaire créé: ID {catalogue.id}")
+            
+        except Exception as e:
+            print(f"❌ Erreur création catalogue: {e}")
+            messages.error(request, "❌ Aucun catalogue disponible. Veuillez d'abord uploader une image.")
+            return redirect('upload')
+    
+    # 🔥 Si toujours pas de catalogue, rediriger
+    if not catalogue:
+        messages.error(request, "❌ Aucun catalogue actif. Veuillez d'abord uploader une image.")
         return redirect('upload')
     
     if request.method == 'POST':
@@ -1323,6 +1362,7 @@ def add_product(request):
         desc_3 = request.POST.get('desc_3', '').strip()
         note_1 = request.POST.get('note_1', '').strip()
         note_2 = request.POST.get('note_2', '').strip()
+        
         # Convertir les prix
         prix = None
         if request.POST.get('prix'):
