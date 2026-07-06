@@ -842,20 +842,23 @@ $(document).ready(function () {
         // Supprimer les anciennes alertes
         $('.alert-danger.custom-alert').remove();
 
-        var totalProduits = 0;
-        var nbTraites = 0;
+        // 🔥 Variables pour le suivi
+        var totalProduitsGlobal = 0;  // Total cumulé pour la barre de progression
+        var totalProduitsPage = 0;    // Total de la page courante
+        var nbTraitesPage = 0;        // Traités dans la page courante
+        var currentPage = 1;
+        var totalPages = 0;
+        var isFirstPage = true;       // Pour savoir si c'est la première page
 
         fetch("{% url 'upload_stream' %}", {
             method: 'POST',
             body: fd
         }).then(function (response) {
             if (!response.ok) {
-                // 🔥 Gérer les erreurs HTTP (400, 500, etc.)
                 return response.json().then(function(errData) {
                     var errorMsg = errData.error || 'Erreur inconnue';
                     throw new Error(errorMsg);
                 }).catch(function() {
-                    // Si la réponse n'est pas du JSON
                     throw new Error('Erreur HTTP ' + response.status + ': ' + response.statusText);
                 });
             }
@@ -896,7 +899,6 @@ $(document).ready(function () {
             return readChunk();
 
         }).catch(function (err) {
-            // 🔥 AFFICHER L'ERREUR DANS L'INTERFACE
             console.error('Erreur:', err);
             var errorMessage = err.message || 'Une erreur est survenue lors du traitement.';
             
@@ -905,10 +907,8 @@ $(document).ready(function () {
             $('#streamBar').css('width', '100%').addClass('bg-danger');
             $('#uploadBtn').prop('disabled', false).html('<i class="fas fa-upload me-1"></i> Importer');
             
-            // Afficher un toast d'erreur
             showToast('error', '❌ ' + errorMessage);
             
-            // Afficher une alerte dans la page
             var alertHtml = `
                 <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mt-3" role="alert" style="border-radius: 12px; border-left: 4px solid #dc3545;">
                     <div class="d-flex align-items-center gap-2">
@@ -920,6 +920,7 @@ $(document).ready(function () {
             `;
             $('#streamProgress').after(alertHtml);
         });
+
         function handleSSE(evt) {
             if (evt.type === 'catalogue') {
                 if (evt.image_url) {
@@ -927,23 +928,40 @@ $(document).ready(function () {
                     $('#streamStatus').text('Traitement de la page ' + evt.page + '/' + evt.total_pages + '...');
                 }
                 $('#streamStatus').text('Détection des produits...');
+                currentPage = evt.page;
+                totalPages = evt.total_pages;
+                
+                // 🔥 RÉINITIALISER LES COMPTEURS DE PAGE
+                totalProduitsPage = 0;
+                nbTraitesPage = 0;
+                isFirstPage = (currentPage === 1);
 
             } else if (evt.type === 'page_total') {
-                totalProduits = evt.count;
-                $('#streamStatus').text('Page ' + evt.page + '/' + evt.total_pages + ' : ' + totalProduits + ' produits détectés');
-                if (totalProduits === 0) {
+                // 🔥 Stocker le total de la page
+                totalProduitsPage = evt.count;
+                totalProduitsGlobal += evt.count;
+                
+                // 🔥 RÉINITIALISER nbTraitesPage pour la nouvelle page
+                nbTraitesPage = 0;
+                
+                $('#streamStatus').text('Page ' + evt.page + '/' + evt.total_pages + ' : ' + totalProduitsPage + ' produits détectés');
+                if (totalProduitsPage === 0) {
                     $('#streamStatus').text('Page ' + evt.page + '/' + evt.total_pages + ' : Aucun produit détecté.');
                 }
 
             } else if (evt.type === 'product') {
-                nbTraites++;
-                var pct = totalProduits > 0 ? Math.round((nbTraites / totalProduits) * 100) : 100;
-                $('#streamBar').css('width', pct + '%');
-                $('#streamCounter').text('Page ' + evt.page + ' : ' + nbTraites + ' / ' + totalProduits + ' produits traités');
+                // 🔥 Incrémenter le compteur de la page
+                nbTraitesPage++;
+                
+                // 🔥 Barre de progression : basée sur le total global
+                var pctGlobal = totalProduitsGlobal > 0 ? Math.round((nbTraitesPage / totalProduitsPage) * 100) : 100;
+                
+                $('#streamBar').css('width', pctGlobal + '%');
+                $('#streamCounter').text('Page ' + evt.page + ' : ' + nbTraitesPage + ' / ' + totalProduitsPage + ' produits traités');
                 appendProductRow(evt);
 
             } else if (evt.type === 'page_done') {
-                $('#streamStatus').text('Page ' + evt.page + '/' + evt.total_pages + ' : ' + evt.count + ' produits extraits');
+                $('#streamStatus').text('Page ' + evt.page + '/' + evt.total_pages + ' : ' + evt.count + ' produits extraits - Total global: ' + totalProduitsGlobal);
                 
             } else if (evt.type === 'done') {
                 $('#streamBar').css('width', '100%').removeClass('progress-bar-animated');
@@ -953,20 +971,14 @@ $(document).ready(function () {
                 updatePendingBadge();
 
             } else if (evt.type === 'error') {
-                // 🔥 AFFICHER L'ERREUR DANS L'INTERFACE
                 $('#streamStatus').text('❌ Erreur : ' + evt.message);
                 $('#streamSpinner').hide();
                 $('#streamBar').css('width', '100%').addClass('bg-danger');
-                
-                // Afficher un toast d'erreur
                 showToast('error', '❌ ' + evt.message);
-                
-                // Réactiver le bouton
                 $('#uploadBtn').prop('disabled', false).html('<i class="fas fa-upload me-1"></i> Importer');
             }
         }
     });
-
     // ================================================================
     //  FILTRE PAR MARQUE
     // ================================================================
