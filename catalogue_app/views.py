@@ -35,15 +35,15 @@ def index(request):
     from django.db.models import Count, Q
     from datetime import datetime
     
-    # 🔥 Statistiques de base
+    # Statistiques de base
     total_catalogues = Catalogue.objects.count()
     total_produits_sauvegardes = Produit.objects.filter(est_sauvegarde=True).count()
     total_enseignes = Enseigne.objects.count()
     
-    # 🔥 Produits à traiter (non sauvegardés)
+    # Produits à traiter (non sauvegardés)
     produits_a_traiter = Produit.objects.filter(est_sauvegarde=False).count()
     
-    # 🔥 Catalogues actifs avec comptage des produits sauvegardés
+    # Catalogues actifs avec comptage des produits sauvegardés
     catalogues_actifs = Catalogue.objects.filter(
         date_fin__gte=datetime.now().date()
     ).annotate(
@@ -69,7 +69,7 @@ def upload(request):
     last_uploaded_image = request.session.get('last_uploaded_image', None)
     last_uploaded_images = request.session.get('last_uploaded_images', [])
     
-    # 🔥 Récupérer le catalogue actuel depuis la session
+    #  Récupérer le catalogue actuel depuis la session
     catalogue_id = request.session.get('active_catalogue_id', None)
     catalogue_actuel = None
     
@@ -82,7 +82,7 @@ def upload(request):
             if 'active_catalogue_id' in request.session:
                 del request.session['active_catalogue_id']
     
-    # 🔥 Si pas de catalogue dans la session, vérifier s'il y a des produits non sauvegardés
+    #  Si pas de catalogue dans la session, vérifier s'il y a des produits non sauvegardés
     if not catalogue_actuel:
         produits_non_sauvegardes_total = Produit.objects.filter(est_sauvegarde=False).count()
         
@@ -94,7 +94,7 @@ def upload(request):
             if dernier_catalogue:
                 catalogue_actuel = dernier_catalogue
                 request.session['active_catalogue_id'] = dernier_catalogue.id
-                print(f"✅ Catalogue récupéré depuis la base: ID {dernier_catalogue.id}")
+                print(f"Catalogue récupéré depuis la base: ID {dernier_catalogue.id}")
         else:
             # Si plus de produits, nettoyer la session
             if 'last_uploaded_images' in request.session:
@@ -105,22 +105,22 @@ def upload(request):
                 del request.session['active_catalogue_id']
             last_uploaded_images = []
             last_uploaded_image = None
-            print("🗑️ Session nettoyée (plus de produits)")
+            print("Session nettoyée (plus de produits)")
     
     # Si pas d'image dans last_uploaded_image mais des images dans last_uploaded_images
     if not last_uploaded_image and last_uploaded_images:
         last_uploaded_image = last_uploaded_images[0] if last_uploaded_images else None
     
-    # 🔥 Récupérer l'image du catalogue si elle n'est pas dans la session
+    # Récupérer l'image du catalogue si elle n'est pas dans la session
     if not last_uploaded_image and catalogue_actuel and catalogue_actuel.image_path:
         last_uploaded_image = os.path.join(settings.MEDIA_URL, catalogue_actuel.image_path)
         request.session['last_uploaded_image'] = last_uploaded_image
         if not last_uploaded_images:
             last_uploaded_images = [last_uploaded_image]
             request.session['last_uploaded_images'] = last_uploaded_images
-        print(f"✅ Image récupérée depuis le catalogue ID {catalogue_actuel.id}")
+        print(f"Image récupérée depuis le catalogue ID {catalogue_actuel.id}")
     
-    # 🔍 DEBUG - Afficher l'état de la session
+    # DEBUG - Afficher l'état de la session
     print("=" * 80)
     print("🔍 UPLOAD VIEW - ÉTAT DE LA SESSION")
     print(f"📌 last_uploaded_image depuis session: {last_uploaded_image}")
@@ -143,8 +143,11 @@ def upload(request):
                 if not images:
                     messages.error(request, "Veuillez sélectionner au moins une image.")
                     return redirect('upload')
-                
-                # 🔥 Vérifier si le catalogue existe déjà
+                # VALIDATION : date_debut doit être < date_fin
+                if date_debut >= date_fin:
+                    messages.error(request, "La date de début doit être antérieure à la date de fin.")
+                    return redirect('upload')
+                # Vérifier si le catalogue existe déjà
                 catalogue, created = Catalogue.objects.get_or_create(
                     enseigne=enseigne,
                     date_debut=date_debut,
@@ -155,16 +158,16 @@ def upload(request):
                 if not created and note and catalogue.note != note:
                     catalogue.note = note
                     catalogue.save()
-                # 🔥 Sauvegarder l'ID du catalogue dans la session
+                #Sauvegarder l'ID du catalogue dans la session
                 request.session['active_catalogue_id'] = catalogue.id
                 
-                # 🔥 Si le catalogue existe déjà, récupérer les images existantes
+                #Si le catalogue existe déjà, récupérer les images existantes
                 existing_images = request.session.get('last_uploaded_images', [])
                 
                 total_produits = 0
                 images_paths = []
                 
-                # 🔥 Traiter chaque image
+                # Traiter chaque image
                 for idx, image in enumerate(images):
                     # Sauvegarder l'image du catalogue
                     image_name = f'{enseigne.nom}_{date_debut}_{date_fin}_{idx}_{image.name}'
@@ -185,7 +188,7 @@ def upload(request):
                     produits_data = []
                     try:
                         produits_data = ocr.traiter_image_complete(full_path)
-                        print(f"📊 Image {idx+1}: {len(produits_data)} produits détectés")
+                        print(f"Image {idx+1}: {len(produits_data)} produits détectés")
                         
                         # Afficher les données extraites pour debug
                         print("\n" + "=" * 80)
@@ -444,6 +447,8 @@ def upload_stream(request):
     from datetime import datetime
     date_debut = datetime.strptime(date_debut_str, '%Y-%m-%d').date()
     date_fin = datetime.strptime(date_fin_str, '%Y-%m-%d').date()
+    if date_debut >= date_fin:
+        return JsonResponse({'error': 'La date de début doit être antérieure à la date de fin.'}, status=400)    
     try:
         catalogue = Catalogue.objects.get(
             enseigne=enseigne,
@@ -1521,6 +1526,7 @@ def delete_saved_product(request, product_id):
             return JsonResponse({'success': False, 'error': str(e)})
     
     return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
+
 def export_products_excel(request):
     """Exporter les produits du dernier catalogue sauvegardé en fichier Excel"""
     

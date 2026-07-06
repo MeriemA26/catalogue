@@ -33,17 +33,17 @@
             <div class="d-flex flex-wrap justify-content-between align-items-center">
                 <div>
                     <h5 class="fw-bold mb-0">
-                        <i class="fas fa-store text-primary me-2"></i>
+                        <i class="fas fa-store text-secondary me-2"></i>
                         {{ catalogue.enseigne.nom }}
-                        {% if catalogue.note %}
-                            <span class="badge bg-light text-secondary ms-2">
-                                <i class="fas fa-tag me-1"></i>{{ catalogue.note }}
-                            </span>
-                        {% endif %}
                     </h5>
                     <small class="text-muted">
                         <i class="far fa-calendar-alt me-1"></i>
                         {{ catalogue.date_debut|date:"d/m/Y" }} → {{ catalogue.date_fin|date:"d/m/Y" }}
+                        {% if catalogue.note %}
+                            <span class="badge bg-light ms-2" style="color: #0e4c81; border: 1px solid #e8e8f0;">
+                                <i class="fas fa-tag me-1"></i>{{ catalogue.note }}
+                            </span>
+                        {% endif %}
                     </small>
                 </div>
                 <div>
@@ -149,9 +149,6 @@
             <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
             <h5 class="fw-bold">Aucun catalogue sauvegardé</h5>
             <p class="text-muted mb-3">Uploadez un catalogue et sauvegardez les produits pour les voir ici.</p>
-            <a href="{% url 'upload' %}" class="btn btn-upload">
-                <i class="fas fa-upload me-1"></i>Uploader un catalogue
-            </a>
         </div>
     </div>
 {% endif %}

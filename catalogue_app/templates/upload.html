@@ -3,146 +3,148 @@
 {% load static %}
 
 {% block content %}
-<h2>Upload de Catalogue</h2>
+<!-- En-tête -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h5 class="fw-bold mb-0">
+        Importation de catalogue
+    </h5>
+</div>
 
 <!-- Afficher les images du catalogue avec les informations -->
 {% if last_uploaded_images or catalogue_actuel %}
-<div class="row mt-3">
+<div class="row mt-3 catalogue-images-wrapper">
     <div class="col-md-12">
         <div class="alert alert-{% if produits_non_sauvegardes > 0 %}success{% else %}info{% endif %}">
-            <label class="form-label fw-bold">📷 Images du catalogue actuel :</label>
-
-            <!-- Dans l'alerte du catalogue -->
-            {% if catalogue_actuel %}
-            <div class="row mb-2">
-                <div class="col-md-12">
-                    <div class="p-2 bg-light rounded">
-                        <strong>🏷️ Enseigne:</strong> {{ catalogue_actuel.enseigne.nom }} &nbsp;|&nbsp;
-                        <strong>📅 Du:</strong> {{ catalogue_actuel.date_debut|date:"d/m/Y" }} &nbsp;|&nbsp;
-                        <strong>📅 Au:</strong> {{ catalogue_actuel.date_fin|date:"d/m/Y" }}
-                        {% if catalogue_actuel.note %}
-                            &nbsp;|&nbsp; <span class="badge bg-info"><i class="fas fa-tag"></i> {{ catalogue_actuel.note }}</span>
-                        {% endif %}
-                        <span class="badge bg-primary ms-2" id="totalPendingBadge">{{ produits_non_sauvegardes }} produit(s) en attente</span>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
+            <h6 class="fw-bold mb-3">
+                <i class="fas fa-images text-secondary me-2"></i>Images du catalogue actuel
+            </h6>
             
-            <!-- Afficher les images -->
             {% if last_uploaded_images %}
-            <div class="border p-2" style="background-color: #f8f9fa; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-height: 500px; overflow-y: auto;">
+            <div class="catalogue-images-grid">
                 {% for image_url in last_uploaded_images %}
-                <div style="flex: 0 0 auto; max-width: 200px; text-align: center;">
+                <div class="catalogue-image-item">
                     <img src="{{ image_url }}" 
-                         alt="Catalogue page {{ forloop.counter }}" 
-                         class="img-fluid" 
-                         style="max-height: 180px; object-fit: contain; border: 1px solid #ddd; border-radius: 5px; cursor: pointer;"
-                         onclick="window.open('{{ image_url }}', '_blank')"
-                         title="Cliquez pour agrandir">
-                    <p class="text-center text-muted small" style="margin: 2px 0;">Page {{ forloop.counter }}</p>
+                         alt="Page catalogue {{ forloop.counter }}"
+                         title="Image du catalogue"> 
+                    <p class="page-number">Page {{ forloop.counter }}</p>
                 </div>
                 {% endfor %}
             </div>
-            {% endif %}
-            
-            {% if produits_non_sauvegardes == 0 %}
-                <p class="mt-2 text-muted">✅ Tous les produits ont été traités.</p>
-            {% else %}
-                <p class="mt-2 text-muted">{{ produits_non_sauvegardes }} produit(s) en attente de traitement.</p>
             {% endif %}
         </div>
     </div>
 </div>
 {% endif %}
 
-<form enctype="multipart/form-data" class="mb-4" id="uploadForm">
-    {% csrf_token %}
-    <!-- Section du formulaire -->
-    <div class="row">
-        <div class="col-md-3">
-            <label for="{{ form.enseigne.id_for_label }}" class="form-label">Enseigne</label>
-            {{ form.enseigne }}
-        </div>
-        <div class="col-md-3">
-            <label for="{{ form.date_debut.id_for_label }}" class="form-label">Date début</label>
-            {{ form.date_debut }}
-        </div>
-        <div class="col-md-3">
-            <label for="{{ form.date_fin.id_for_label }}" class="form-label">Date fin</label>
-            {{ form.date_fin }}
-        </div>
-        <div class="col-md-3">
-            <label for="{{ form.images.id_for_label }}" class="form-label">Images</label>
-            {{ form.images }}
-            <small class="text-muted d-block">Ctrl + clic pour sélectionner plusieurs</small>
-        </div>
+<!-- Formulaire -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 py-2">
+        <h6 class="fw-bold mb-0"><i class="fas fa-pencil-alt text-secondary me-2"></i>Informations du catalogue</h6>
     </div>
-    <div class="row mt-3">
-        <div class="col-md-12">
-            <div class="mb-3">
-                <label for="{{ form.note.id_for_label }}" class="form-label">
-                    <i class="fas fa-tag"></i> {{ form.note.label }}
-                </label>
-                {{ form.note }}
-                <small class="text-muted d-block">
-                    <i class="fas fa-info-circle"></i> 
-                    Ajoutez une note pour identifier ce catalogue 
-                </small>
-            </div>
-        </div>
-    </div>
-    <!-- Preview des images -->
-    <div class="row mt-3">
-        <div class="col-md-12">
-            <div id="imagePreview" style="display: none;">
-                <label class="form-label fw-bold">📷 Aperçu des images :</label>
-                <div id="previewContainer" class="d-flex flex-wrap gap-2 border p-2" 
-                    style="background-color: #f8f9fa; min-height: 100px; border-radius: 5px;">
+    <div class="card-body">
+        <form enctype="multipart/form-data" class="mb-0" id="uploadForm">
+            {% csrf_token %}
+            <!-- Section du formulaire -->
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label for="{{ form.enseigne.id_for_label }}" class="form-label fw-semibold">Enseigne</label>
+                    {{ form.enseigne }}
+                </div>
+                <div class="col-md-3">
+                    <label for="{{ form.date_debut.id_for_label }}" class="form-label fw-semibold">Date de début</label>
+                    {{ form.date_debut }}
+                </div>
+                <div class="col-md-3">
+                    <label for="{{ form.date_fin.id_for_label }}" class="form-label fw-semibold">Date de fin</label>
+                    {{ form.date_fin }}
+                </div>
+                <div class="col-md-3">
+                    <label for="{{ form.images.id_for_label }}" class="form-label fw-semibold">
+                         Image(s)
+                    </label>
+                    <div class="file-upload-wrapper">
+                        {{ form.images }}
+                        <div class="file-upload-btn">
+                            Parcourir
+                        </div>
+                        <span class="file-upload-info" id="fileInfo">Aucune image</span>
+                    </div>
+                    <small class="text-muted d-block mt-1">
+                        <i class="fas fa-info-circle me-1"></i> Ctrl + clic pour sélectionner plusieurs
+                    </small>
                 </div>
             </div>
-        </div>
-    </div>
+            <div class="row mt-3">
+                <div class="col-md-12">
+                    <div class="mb-3">
+                        <label for="{{ form.note.id_for_label }}" class="form-label fw-semibold">
+                            <i class="fas fa-tag me-1"></i> {{ form.note.label }}
+                        </label>
+                        {{ form.note }}
+                    </div>
+                </div>
+            </div>
+            <!-- Preview des images -->
+            <div class="row mt-3">
+                <div class="col-md-12">
+                    <div id="imagePreview" style="display: none;">
+                        <label class="form-label fw-semibold">Aperçu des images :</label>
+                        <div id="previewContainer" class="d-flex flex-wrap gap-2 border p-2" 
+                            style="background-color: #f8f9fa; min-height: 100px; border-radius: 5px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-    <button type="button" class="btn btn-primary mt-3" id="uploadBtn">
-        <i class="fas fa-upload"></i> Uploader
-    </button>
-</form>
+            <div class="mt-3">
+                <button type="button" class="btn-import" id="uploadBtn">
+                    <i class="fas fa-upload me-1"></i> Importer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <!-- Barre de progression SSE -->
 <div id="streamProgress" style="display:none;" class="mt-3">
-    <div class="d-flex align-items-center gap-2 mb-2">
-        <div class="spinner-border spinner-border-sm text-primary" id="streamSpinner"></div>
-        <span id="streamStatus" class="fw-bold">Traitement en cours...</span>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <div class="spinner-border spinner-border-sm text-primary" id="streamSpinner"></div>
+                <span id="streamStatus" class="fw-bold">Traitement en cours...</span>
+            </div>
+            <div class="progress" style="height: 8px;">
+                <div id="streamBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                     role="progressbar" style="width: 0%"></div>
+            </div>
+            <small class="text-muted" id="streamCounter"></small>
+        </div>
     </div>
-    <div class="progress" style="height: 8px;">
-        <div id="streamBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
-             role="progressbar" style="width: 0%"></div>
-    </div>
-    <small class="text-muted" id="streamCounter"></small>
 </div>
+
 <!-- ================================================================ -->
-<!--  FILTRE ET SUPPRESSION PAR MARQUE (FLEXIBLE)                    -->
+<!--  FILTRE PAR MARQUE                                               -->
 <!-- ================================================================ -->
 <div id="filterSection" style="{% if produits_non_sauvegardes == 0 %}display:none;{% endif %}" class="mt-3 mb-3">
-    <div class="card">
+    <div class="card border-0 shadow-sm">
         <div class="card-body">
-            <div class="row align-items-end">
-                <div class="col-md-5">
-                    <label class="form-label fw-bold">🔍 Rechercher une marque</label>
+            <h6 class="fw-bold mb-3">
+                <i class="fas fa-search text-secondary me-2"></i> Rechercher une marque
+            </h6>
+            <div class="row align-items-center g-2">
+                <div class="col-md-6">
                     <input type="text" class="form-control" id="marqueSearchInput" 
-                           placeholder="Tapez une marque (ex: LUXIS, PAPILLON, LAND'OR...)" 
+                           placeholder="Tapez une marque (ex: LUXIS, PAPILLON...)" 
                            autocomplete="off">
-                    <small class="text-muted">Recherche insensible à la casse et aux caractères spéciaux</small>
                 </div>
-                <div class="col-md-2">
-                    <button class="btn btn-primary w-100" id="applyFilterBtn">
-                        <i class="fas fa-search"></i> Filtrer
+                <div class="col-md-3">
+                    <button class="btn-filter w-100" id="applyFilterBtn">
+                        <i class="fas fa-search me-1"></i> Filtrer
                     </button>
                 </div>
-                <div class="col-md-2">
-                    <button class="btn btn-secondary w-100" id="resetFilterBtn">
-                        <i class="fas fa-undo"></i> Réinitialiser
+                <div class="col-md-3">
+                    <button class="btn-reset w-100" id="resetFilterBtn">
+                        <i class="fas fa-undo me-1"></i> Réinitialiser
                     </button>
                 </div>
             </div>
@@ -150,7 +152,7 @@
     </div>
 </div>
 
-<!-- 🔥 TABLEAU RENDU PAR DJANGO (mais caché et utilisé comme source de données) -->
+<!-- TABLEAU RENDU PAR DJANGO (caché et utilisé comme source de données) -->
 <div id="productData" style="display:none;" 
      data-products='[
          {% for key, produits in catalogues_recents.items %}
@@ -177,30 +179,156 @@
      ]'>
 </div>
 
-<!-- 🔥 CONTENEUR POUR LE TABLEAU - Géré par JavaScript -->
+<!-- CONTENEUR POUR LE TABLEAU - Géré par JavaScript -->
 <div id="productSectionContainer"></div>
 
 <!-- Message quand aucun produit -->
-<div id="noProductsMessage" class="alert alert-info mt-4" style="{% if produits_non_sauvegardes > 0 %}display:none;{% endif %}">
-    <i class="fas fa-info-circle"></i> 
+<div id="noProductsMessage" class="alert alert-info border-0 shadow-sm mt-4" style="{% if produits_non_sauvegardes > 0 %}display:none;{% endif %}">
+    <i class="fas fa-info-circle me-2"></i> 
     {% if catalogues_recents %}
-        ✅ Tous les produits ont été sauvegardés ou supprimés. 
+        Tous les produits ont été sauvegardés ou supprimés.
         <a href="{% url 'product_list' %}" class="alert-link">Voir les produits sauvegardés</a>
     {% else %}
-        📂 Aucun catalogue récent. Uploadez une image pour commencer.
+        Aucun catalogue récent. Importez une image pour commencer.
     {% endif %}
 </div>
+<!-- ================================================================ -->
+<!--  MODALES DE CONFIRMATION                                         -->
+<!-- ================================================================ -->
 
+<!-- Modal pour Sauvegarder sélectionnés -->
+<div class="modal fade" id="saveSelectedModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-confirm">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-save text-success me-2"></i>Confirmation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="icon-success">
+                    <i class="fas fa-save"></i>
+                </div>
+                <p class="mb-0">
+                    Êtes-vous sûr de vouloir sauvegarder <span id="saveSelectedCount" class="product-name">0</span> produit(s) sélectionné(s) ?
+                </p>
+                <small class="text-muted">Les produits seront enregistrés dans la base de données.</small>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Annuler
+                </button>
+                <button type="button" class="btn btn-confirm-save" id="confirmSaveSelectedBtn">
+                    <i class="fas fa-save me-1"></i>Sauvegarder
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour Sauvegarder tous -->
+<div class="modal fade" id="saveAllModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-confirm">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-save-all text-success me-2"></i>Confirmation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="icon-success">
+                    <i class="fas fa-save"></i>
+                </div>
+                <p class="mb-0">
+                    Êtes-vous sûr de vouloir sauvegarder <span id="saveAllCount" class="product-name">0</span> produit(s) ?
+                </p>
+                <small class="text-muted">Tous les produits seront enregistrés dans la base de données.</small>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Annuler
+                </button>
+                <button type="button" class="btn btn-confirm-save" id="confirmSaveAllBtn">
+                    <i class="fas fa-save me-1"></i>Sauvegarder tous
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour Supprimer sélectionnés -->
+<div class="modal fade" id="deleteSelectedModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-confirm">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-trash-alt text-danger me-2"></i>Confirmation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="icon-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <p class="mb-0">
+                    Êtes-vous sûr de vouloir supprimer <span id="deleteSelectedCount" class="product-name">0</span> produit(s) sélectionné(s) ?
+                </p>
+                <small class="text-muted">Cette action est irréversible.</small>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Annuler
+                </button>
+                <button type="button" class="btn btn-confirm-delete" id="confirmDeleteSelectedBtn">
+                    <i class="fas fa-trash me-1"></i>Supprimer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour Supprimer tous -->
+<div class="modal fade" id="deleteAllModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-confirm">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-trash-alt text-danger me-2"></i>Confirmation
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="icon-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <p class="mb-0">
+                    Êtes-vous sûr de vouloir supprimer <span id="deleteAllCount" class="product-name">0</span> produit(s) ?
+                </p>
+                <small class="text-muted">Cette action est irréversible.</small>
+            </div>
+            <div class="modal-footer justify-content-center">
+                <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Annuler
+                </button>
+                <button type="button" class="btn btn-confirm-delete" id="confirmDeleteAllBtn">
+                    <i class="fas fa-trash me-1"></i>Supprimer tous
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- Modal pour agrandir l'image -->
 <div class="modal fade" id="imageModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0">
                 <h5 class="modal-title">Image du produit</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body text-center">
-                <img id="modalImage" src="" alt="Produit" class="img-fluid">
+                <img id="modalImage" src="" alt="Produit" class="img-fluid rounded">
             </div>
         </div>
     </div>
@@ -210,12 +338,38 @@
 {% block scripts %}
 <script>
 $(document).ready(function () {
-
+// Gestion du champ de fichier
+    var fileInput = $('#id_images');
+    var fileInfo = $('#fileInfo');
+    var fileWrapper = $('.file-upload-wrapper');
+    
+    if (fileInput.length) {
+        fileInput.on('change', function() {
+            var files = this.files;
+            
+            if (files.length > 0) {
+                fileWrapper.addClass('has-files');
+                
+                if (files.length === 1) {
+                    // Tronquer le nom si trop long
+                    var fileName = files[0].name;
+                    if (fileName.length > 30) {
+                        fileName = fileName.substring(0, 27) + '...';
+                    }
+                    fileInfo.text(fileName);
+                } else {
+                    fileInfo.text(files.length + ' images');
+                }
+            } else {
+                fileWrapper.removeClass('has-files');
+                fileInfo.text('Aucune image');
+            }
+        });
+    }
     // ================================================================
     //  CHARGER LES PRODUITS DEPUIS LES DONNEES DJANGO
     // ================================================================
     function chargerProduitsExistants() {
-        // Récupérer les produits depuis l'attribut data-products
         var productData = $('#productData').data('products');
         
         if (productData && productData.length > 0) {
@@ -238,136 +392,140 @@ $(document).ready(function () {
     // ================================================================
     //  FONCTIONS POUR AJOUTER AU TABLEAU
     // ================================================================
-
     function appendProductRow(p) {
-        // Vérifier si le produit existe déjà (éviter les doublons)
         if ($('#prod-row-' + p.id).length > 0) {
-            console.log('⚠️ Produit ' + p.id + ' déjà affiché, ignoré');
             return;
         }
 
-        // 🔥 Créer le tableau s'il n'existe pas
         var $tableBody = $('#productTableBody');
         if ($tableBody.length === 0) {
             buildTableSection();
             $tableBody = $('#productTableBody');
         }
         
-        // S'assurer que la section est visible
         if ($('#productSection').length === 0) {
             buildTableSection();
             $tableBody = $('#productTableBody');
         }
 
-        // 🔥 Afficher la section
         $('#productSection').show();
         $('#noProductsMessage').hide();
 
-        // Construire la ligne du produit
         var imgHtml = p.image_url
-            ? '<img src="' + p.image_url + '" class="product-thumb" style="width:60px;height:60px;object-fit:cover;border-radius:5px;border:1px solid #ddd;cursor:pointer;" title="Cliquer pour agrandir" onclick="window.open(this.src, \'_blank\')">'
+            ? '<img src="' + p.image_url + '" class="product-thumb" style="width:50px;height:50px;object-fit:cover;border-radius:5px;border:1px solid #ddd;cursor:pointer;" title="Cliquer pour agrandir" >'
             : '<span class="text-muted"><i class="fas fa-image"></i></span>';
             
+        // 🔥 STYLE PRIX - Même que product_list.html
         var prixHtml = '';
         if (p.prix) {
             var prix = parseFloat(p.prix);
             if (!isNaN(prix)) {
-                prixHtml = '<span class="fw-bold text-success">' + prix.toFixed(3) + '</span>';
+                prixHtml = '<span class="fw-bold text-primary">' + prix.toFixed(3) + '</span>';
             }
+        } else {
+            prixHtml = '<span class="text-muted">-</span>';
         }
 
+        // 🔥 STYLE PRIX AVANT - Même que product_list.html
         var prixAvantHtml = '';
         if (p.prix_avant) {
             var prixAvant = parseFloat(p.prix_avant);
             if (!isNaN(prixAvant)) {
-                prixAvantHtml = '<span class="text-decoration-line-through text-danger">' + prixAvant.toFixed(3) + '</span>';
+                prixAvantHtml = '<span class="text-decoration-line-through text-muted">' + prixAvant.toFixed(3) + '</span>';
             }
+        } else {
+            prixAvantHtml = '<span class="text-muted">-</span>';
         }
 
-        var pctHtml = p.pourcentage ? '<span class="badge bg-danger">' + p.pourcentage + '%</span>' : '';
+        // 🔥 STYLE POURCENTAGE - Même que product_list.html
+        var pctHtml = '';
+        if (p.pourcentage) {
+            var pct = parseFloat(p.pourcentage);
+            if (!isNaN(pct)) {
+                pctHtml = '<span class="badge bg-success rounded-pill">' + pct.toFixed(0) + '%</span>';
+            }
+        } else {
+            pctHtml = '<span class="text-muted">-</span>';
+        }
+        
         var rowNum = $tableBody.find('tr').length + 1;
 
         var row = $('<tr id="prod-row-' + p.id + '">').html(
             '<td><input type="checkbox" name="selected_products" value="' + p.id + '"></td>' +
-            '<td>' + rowNum + '</td>' +
+            '<td class="fw-semibold text-muted">' + rowNum + '</td>' +
             '<td>' + imgHtml + '</td>' +
-            '<td>' + escHtml(p.nom_fr) + '</td>' +
+            '<td class="fw-medium">' + escHtml(p.nom_fr) + '</td>' +
             '<td>' + escHtml(p.nom_ar) + '</td>' +
             '<td>' + escHtml(p.marque) + '</td>' +
-            '<td>' + prixHtml + '</td>' +
-            '<td>' + prixAvantHtml + '</td>' +
-            '<td>' + pctHtml + '</td>' +
+            '<td class="text-end">' + prixHtml + '</td>' +
+            '<td class="text-end">' + prixAvantHtml + '</td>' +
+            '<td class="text-center">' + pctHtml + '</td>' +
             '<td>' + escHtml(p.desc_1) + '</td>' +
             '<td>' + escHtml(p.desc_2) + '</td>' +
             '<td>' + escHtml(p.desc_3) + '</td>' +
             '<td>' + escHtml(p.note_1) + '</td>' +
             '<td>' + escHtml(p.note_2) + '</td>' +
-            '<td><a href="/product/edit/' + p.id + '/" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a></td>'
+            '<td><a href="/product/edit/' + p.id + '/" class="btn btn-edit btn-sm""><i class="fas fa-edit"></i></a></td>'
         );
 
-        // 🔥 AJOUTER AU TABLEAU
         $tableBody.append(row);
         row.hide().fadeIn(400);
         
-        // Mettre à jour le compteur
         updatePendingBadge();
     }
 
     function buildTableSection() {
-        // 🔥 Vérifier si la section existe déjà
         if ($('#productSection').length > 0) {
             return;
         }
         
         var csrf = $('[name=csrfmiddlewaretoken]').first().val();
-        // 🔥 Récupérer la note actuelle
         var currentNote = $('#id_note').val() || '';
         
-        var section = $(
-            '<div class="card mt-4" id="productSection">' +
-            '<div class="card-header d-flex justify-content-between align-items-center">' +
-            '<h4>📦 Produits du catalogue en cours</h4>' +
-            '<span class="badge bg-warning" id="pendingBadge">0 produits en attente</span>' +
-            '</div><div class="card-body">' +
-            '<form method="post" id="productForm">' +
-            '<input type="hidden" name="csrfmiddlewaretoken" value="' + csrf + '">' +
-            // 🔥 AJOUTER UN CHAMP CACHÉ POUR LA NOTE
-            '<input type="hidden" name="note" id="hiddenNote" value="' + currentNote + '">' +
-            '<div class="table-responsive">' +
-            '<table class="table table-striped table-hover">' +
-            '<thead><tr>' +
-            '<th><input type="checkbox" id="selectAll2"></th>' +
-            '<th>#</th><th>🖼️ Image</th><th>Nom (FR)</th><th>Nom (AR)</th>' +
-            '<th>Marque</th><th>Prix</th><th>Prix Avant</th><th>%</th>' +
-            '<th>Desc 1</th><th>Desc 2</th><th>Desc 3</th>' +
-            '<th>Note 1</th><th>Note 2</th><th>Actions</th>' +
-            '</tr></thead>' +
-            '<tbody id="productTableBody">' +
-            '</tbody>' +
-            '</table></div>' +
-            '<div class="d-flex flex-wrap gap-2 mt-2">' +
-            '<div class="btn-group" role="group">' +
-            '<button type="submit" formaction="{% url "save_selected_products" %}" class="btn btn-success" id="saveSelectedBtn"><i class="fas fa-save"></i> Sauvegarder sélectionnés</button>' +
-            '<button type="submit" formaction="{% url "save_all_products" %}" class="btn btn-primary" id="saveAllBtn"><i class="fas fa-save"></i> Sauvegarder tous</button>' +
-            '<button type="submit" formaction="{% url "delete_selected_products" %}" class="btn btn-danger" id="deleteSelectedBtn"><i class="fas fa-trash"></i> Supprimer sélectionnés</button>' +
-            '<button type="submit" formaction="{% url "delete_all_products" %}" class="btn btn-dark" id="deleteAllBtn"><i class="fas fa-trash"></i> Supprimer tous</button>' +
-            '</div>' +
-            '<a href="{% url "add_product" %}" class="btn btn-success" id="addProductBtn"><i class="fas fa-plus"></i> Ajouter un produit</a>' +
-            '</div></form></div></div>'
-        );
+    var section = $(
+        '<div class="card border-0 shadow-sm mt-4" id="productSection">' +
+        '<div class="card-header bg-white border-0 d-flex justify-content-between align-items-center py-3">' +
+        '<h6 class="fw-bold mb-0">Produits du catalogue en cours</h6>' +
+        '<span class="badge bg-primary rounded-pill px-3 py-2" id="pendingBadge">0 produit(s) en attente</span>' +
+        '</div><div class="card-body p-0">' +
+        '<form method="post" id="productForm">' +
+        '<input type="hidden" name="csrfmiddlewaretoken" value="' + csrf + '">' +
+        '<input type="hidden" name="note" id="hiddenNote" value="' + currentNote + '">' +
+        '<div class="table-responsive">' +
+        '<table class="table table-hover align-middle mb-0">' +
+        '<thead class="table-light">' +
+        '<tr>' +
+        '<th><input type="checkbox" id="selectAll2"></th>' +
+        '<th>#</th><th style="width:60px;">Image</th><th>Nom (FR)</th><th>Nom (AR)</th>' +
+        '<th>Marque</th><th class="text-end">Prix</th><th class="text-end">Prix Avant</th><th class="text-center">%</th>' +
+        '<th>Desc 1</th><th>Desc 2</th><th>Desc 3</th>' +
+        '<th>Note 1</th><th>Note 2</th><th style="width:80px;">Actions</th>' +
+        '</tr></thead>' +
+        '<tbody id="productTableBody">' +
+        '</tbody>' +
+        '</table></div>' +
+        '<div class="d-flex flex-column gap-2 p-3 border-top">' +
+        '<div class="d-flex justify-content-start">' +
+        '<a href="{% url "add_product" %}" class="btn-addp" id="addProductBtn">Ajouter un produit</a>' +
+        '</div>' +
+        '<div class="d-flex flex-wrap gap-2">' +
+        '<button type="button" class="btn-save" id="saveSelectedBtn"><i class="fas fa-save me-1"></i>Sauvegarder sélectionnés</button>' +
+        '<button type="button" class="btn-save" id="saveAllBtn"><i class="fas fa-save me-1"></i>Sauvegarder tous</button>' +
+        '</div>' +
+        '<div class="d-flex flex-wrap gap-2">' +
+        '<button type="button" class="btn-del" id="deleteSelectedBtn"><i class="fas fa-trash me-1"></i>Supprimer sélectionnés</button>' +
+        '<button type="button" class="btn-del" id="deleteAllBtn"><i class="fas fa-trash me-1"></i>Supprimer tous</button>' +
+        '</div>' +
+        '</div></form></div></div>'
+    );
         $('#productSectionContainer').html(section);
     }
 
     function updatePendingBadge() {
         var count = $('#productTableBody tr').length;
-        // Mettre à jour le badge du tableau
-        $('#pendingBadge').text(count + ' produits en attente');
-        // Mettre à jour le badge dans l'alerte
-        $('#totalPendingBadge').text(count + ' produit(s) en attente');
-        // Mettre à jour le badge dans l'en-tête du tableau
-        $('.card-header .badge.bg-warning').text(count + ' produits en attente');
+        $('#pendingBadge').text(count + ' produit' + (count > 1 ? 's' : '') + ' en attente');
+        $('#totalPendingBadge').text(count + ' produit' + (count > 1 ? 's' : '') + ' en attente');
         
-        // 🔥 Mettre à jour le champ caché avec la note actuelle
         var noteValue = $('#id_note').val() || '';
         $('#hiddenNote').val(noteValue);
         
@@ -392,14 +550,11 @@ $(document).ready(function () {
     //  EVENEMENTS
     // ================================================================
 
-    // Selectionner/deselectionner tous
     $(document).on('change', '#selectAll, #selectAll2', function () {
         var isChecked = $(this).prop('checked');
-        // 🔥 Ne sélectionner que les lignes visibles
         $('#productTableBody tr:visible').find('input[name="selected_products"]').prop('checked', isChecked);
     });
 
-    // Preview image avant upload
     $('#id_images').change(function () {
         var files = this.files;
         $('#previewContainer').empty();
@@ -423,41 +578,216 @@ $(document).ready(function () {
                 };
                 reader.readAsDataURL(file);
             }
-            $('html, body').animate({ scrollTop: $('#imagePreview').offset().top - 100 }, 500);
         } else {
             $('#imagePreview').hide();
         }
     });
 
-    // Agrandir image au clic
     $(document).on('click', '.product-thumb', function () {
         $('#modalImage').attr('src', $(this).attr('src'));
         $('#imageModal').modal('show');
     });
 
-    // Confirmations suppression
-    $(document).on('click', '#deleteSelectedBtn, #deleteAllBtn', function (e) {
-        var action = $(this).text().trim();
-        if (!confirm("Etes-vous sur de vouloir " + action + " ? Cette action est irreversible.")) {
-            e.preventDefault(); return false;
+    // ================================================================
+    //  MODALES DE CONFIRMATION
+    // ================================================================
+    var modalState = {
+        action: null,
+        count: 0
+    };
+
+    // Fonction pour afficher un toast
+    function showToast(type, message) {
+        // Supprimer les anciens toasts
+        $('.custom-toast').remove();
+        
+        // Couleurs
+        var colors = {
+            warning: {
+                bg: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                icon: '⚠️'
+            },
+            error: {
+                bg: 'linear-gradient(135deg, #dc3545, #b91c1c)',
+                icon: '❌'
+            },
+            success: {
+                bg: 'linear-gradient(135deg, #10b981, #059669)',
+                icon: '✅'
+            },
+            info: {
+                bg: 'linear-gradient(135deg, #6b7280, #4b5563)',
+                icon: 'ℹ️'
+            }
+        };
+        
+        var color = colors[type] || colors.info;
+        
+        var toastHtml = `
+            <div class="custom-toast position-fixed top-0 start-50 translate-middle-x mt-2" 
+                style="z-index: 9999; min-width: 280px; max-width: 380px; animation: slideDown 0.25s ease; box-shadow: 0 4px 16px rgba(0,0,0,0.15);">
+                <div class="toast align-items-center border-0 show" 
+                    style="background: ${color.bg}; border-radius: 8px;">
+                    <div class="d-flex align-items-center px-3 py-2" style="gap: 0.5rem;">
+                        <span style="font-size: 1rem;">${color.icon}</span>
+                        <span style="font-weight: 500; font-size: 0.8rem; color: #fff; flex: 1;">${message}</span>
+                        <button type="button" class="btn-close btn-close-white" 
+                                style="width: 0.5rem; height: 0.5rem; opacity: 0.7; font-size: 0.5rem;"
+                                onclick="$(this).closest('.custom-toast').fadeOut(200, function(){ $(this).remove(); });">
+                        </button>
+                    </div>
+                    <!-- Barre de progression -->
+                    <div class="toast-progress" style="height: 2px; background: rgba(255,255,255,0.2); border-radius: 0 0 8px 8px; overflow: hidden;">
+                        <div class="toast-progress-bar" style="height: 100%; width: 100%; background: rgba(255,255,255,0.5); border-radius: 0 0 8px 8px; transition: width 2s linear;"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        $('body').append(toastHtml);
+        
+        // Démarrer la barre de progression
+        setTimeout(function() {
+            $('.toast-progress-bar').css('width', '0%');
+        }, 50);
+        
+        // Auto-fermer après 2 secondes
+        setTimeout(function() {
+            $('.custom-toast').fadeOut(300, function() {
+                $(this).remove();
+            });
+        }, 2000);
+    }
+
+    // Sauvegarder sélectionnés
+    $(document).on('click', '#saveSelectedBtn', function(e) {
+        e.preventDefault();
+        var checked = $('input[name="selected_products"]:checked');
+        var count = checked.length;
+        
+        if (count === 0) {
+            showToast('warning', 'Veuillez sélectionner au moins un produit.');
+            return false;
         }
+        
+        modalState.action = 'save_selected';
+        modalState.count = count;
+        $('#saveSelectedCount').text(count);
+        $('#saveSelectedModal').modal('show');
+        return false;
     });
 
-    // Verifier selection
-    $(document).on('click', '#saveSelectedBtn, #deleteSelectedBtn', function (e) {
-        if ($('input[name="selected_products"]:checked').length === 0) {
-            alert("Veuillez selectionner au moins un produit.");
-            e.preventDefault(); return false;
-        }
-    });
-
-    // Confirmation Sauvegarder tous
-    $(document).on('click', '#saveAllBtn', function (e) {
+    // Sauvegarder tous
+    $(document).on('click', '#saveAllBtn', function(e) {
+        e.preventDefault();
         var count = $('input[name="selected_products"]').length;
-        if (count === 0) { alert("Aucun produit a sauvegarder."); e.preventDefault(); return false; }
-        if (!confirm("Voulez-vous sauvegarder les " + count + " produits ?")) {
-            e.preventDefault(); return false;
+        
+        if (count === 0) {
+            showToast('warning', 'Aucun produit à sauvegarder.');
+            return false;
         }
+        
+        modalState.action = 'save_all';
+        modalState.count = count;
+        $('#saveAllCount').text(count);
+        $('#saveAllModal').modal('show');
+        return false;
+    });
+
+    // Supprimer sélectionnés
+    $(document).on('click', '#deleteSelectedBtn', function(e) {
+        e.preventDefault();
+        var checked = $('input[name="selected_products"]:checked');
+        var count = checked.length;
+        
+        if (count === 0) {
+            showToast('warning', 'Veuillez sélectionner au moins un produit.');
+            return false;
+        }
+        
+        modalState.action = 'delete_selected';
+        modalState.count = count;
+        $('#deleteSelectedCount').text(count);
+        $('#deleteSelectedModal').modal('show');
+        return false;
+    });
+
+    // Supprimer tous
+    $(document).on('click', '#deleteAllBtn', function(e) {
+        e.preventDefault();
+        var count = $('input[name="selected_products"]').length;
+        
+        if (count === 0) {
+            showToast('warning', 'Aucun produit à supprimer.');
+            return false;
+        }
+        
+        modalState.action = 'delete_all';
+        modalState.count = count;
+        $('#deleteAllCount').text(count);
+        $('#deleteAllModal').modal('show');
+        return false;
+    });
+
+    // Confirmation des actions de sauvegarde
+    $('#confirmSaveSelectedBtn, #confirmSaveAllBtn').off('click').on('click', function() {
+        var $btn = $(this);
+        var action = modalState.action;
+        
+        if (!action) return;
+        
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Traitement...');
+        
+        // Fermer la modale
+        var modal = $(this).closest('.modal');
+        modal.modal('hide');
+        
+        // Soumettre le formulaire après un petit délai
+        setTimeout(function() {
+            if (action === 'save_selected') {
+                $('#productForm').attr('action', "{% url 'save_selected_products' %}").submit();
+            } else if (action === 'save_all') {
+                $('#productForm').attr('action', "{% url 'save_all_products' %}").submit();
+            }
+        }, 300);
+    });
+
+    // Confirmation des actions de suppression
+    $('#confirmDeleteSelectedBtn, #confirmDeleteAllBtn').off('click').on('click', function() {
+        var $btn = $(this);
+        var action = modalState.action;
+        
+        if (!action) return;
+        
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Traitement...');
+        
+        // Fermer la modale
+        var modal = $(this).closest('.modal');
+        modal.modal('hide');
+        
+        // Soumettre le formulaire après un petit délai
+        setTimeout(function() {
+            if (action === 'delete_selected') {
+                $('#productForm').attr('action', "{% url 'delete_selected_products' %}").submit();
+            } else if (action === 'delete_all') {
+                $('#productForm').attr('action', "{% url 'delete_all_products' %}").submit();
+            }
+        }, 300);
+    });
+
+    // Réinitialiser les modales quand elles sont fermées
+    $('#saveSelectedModal, #saveAllModal, #deleteSelectedModal, #deleteAllModal').on('hidden.bs.modal', function() {
+        modalState.action = null;
+        modalState.count = 0;
+        $(this).find('.btn-confirm-save, .btn-confirm-delete')
+            .prop('disabled', false)
+            .html(function() {
+                if ($(this).hasClass('btn-confirm-save')) {
+                    return '<i class="fas fa-save me-1"></i>Sauvegarder';
+                } else {
+                    return '<i class="fas fa-trash me-1"></i>Supprimer';
+                }
+            });
     });
 
     // ================================================================
@@ -466,17 +796,33 @@ $(document).ready(function () {
     $('#uploadBtn').click(function () {
         var form = document.getElementById('uploadForm');
         var fd = new FormData(form);
+        
+        // 🔥 Vérifier les dates côté client
+        var dateDebut = fd.get('date_debut');
+        var dateFin = fd.get('date_fin');
+        
+        if (dateDebut && dateFin) {
+            var d1 = new Date(dateDebut);
+            var d2 = new Date(dateFin);
+            if (d1 >= d2) {
+                showToast('error', 'La date de début doit être antérieure à la date de fin.');
+                return;
+            }
+        }
 
         if (!fd.get('images') || fd.get('images').size === 0) {
-            alert("Veuillez selectionner une image.");
+            showToast('warning', 'Veuillez sélectionner au moins une image.');
             return;
         }
 
         $('#uploadBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Traitement...');
         $('#streamProgress').show();
-        $('#streamBar').css('width', '0%');
+        $('#streamBar').css('width', '0%').removeClass('bg-danger');
         $('#streamStatus').text("Envoi de l'image...");
         $('#streamCounter').text('');
+        
+        // Supprimer les anciennes alertes
+        $('.alert-danger.custom-alert').remove();
 
         var totalProduits = 0;
         var nbTraites = 0;
@@ -485,8 +831,17 @@ $(document).ready(function () {
             method: 'POST',
             body: fd
         }).then(function (response) {
-            if (!response.ok) { throw new Error('Erreur HTTP ' + response.status); }
-
+            if (!response.ok) {
+                // 🔥 Gérer les erreurs HTTP (400, 500, etc.)
+                return response.json().then(function(errData) {
+                    var errorMsg = errData.error || 'Erreur inconnue';
+                    throw new Error(errorMsg);
+                }).catch(function() {
+                    // Si la réponse n'est pas du JSON
+                    throw new Error('Erreur HTTP ' + response.status + ': ' + response.statusText);
+                });
+            }
+            
             var reader = response.body.getReader();
             var decoder = new TextDecoder();
             var buf = '';
@@ -495,8 +850,8 @@ $(document).ready(function () {
                 return reader.read().then(function (result) {
                     if (result.done) {
                         $('#streamSpinner').hide();
-                        $('#streamStatus').text('Traitement termine !');
-                        $('#uploadBtn').prop('disabled', false).html('<i class="fas fa-upload"></i> Uploader');
+                        $('#streamStatus').text('Traitement terminé !');
+                        $('#uploadBtn').prop('disabled', false).html('<i class="fas fa-upload me-1"></i> Importer');
                         updatePendingBadge();
                         return;
                     }
@@ -509,7 +864,12 @@ $(document).ready(function () {
                         if (!line.startsWith('data: ')) return;
                         var raw = line.slice(6).trim();
                         if (!raw) return;
-                        try { handleSSE(JSON.parse(raw)); } catch (e) {}
+                        try { 
+                            var data = JSON.parse(raw);
+                            handleSSE(data);
+                        } catch (e) {
+                            console.error('Erreur parsing SSE:', e);
+                        }
                     });
 
                     return readChunk();
@@ -518,428 +878,347 @@ $(document).ready(function () {
             return readChunk();
 
         }).catch(function (err) {
-            $('#streamStatus').text('Erreur : ' + err.message);
-            $('#uploadBtn').prop('disabled', false).html('<i class="fas fa-upload"></i> Uploader');
+            // 🔥 AFFICHER L'ERREUR DANS L'INTERFACE
+            console.error('Erreur:', err);
+            var errorMessage = err.message || 'Une erreur est survenue lors du traitement.';
+            
+            $('#streamStatus').text('❌ ' + errorMessage);
+            $('#streamSpinner').hide();
+            $('#streamBar').css('width', '100%').addClass('bg-danger');
+            $('#uploadBtn').prop('disabled', false).html('<i class="fas fa-upload me-1"></i> Importer');
+            
+            // Afficher un toast d'erreur
+            showToast('error', '❌ ' + errorMessage);
+            
+            // Afficher une alerte dans la page
+            var alertHtml = `
+                <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mt-3" role="alert" style="border-radius: 12px; border-left: 4px solid #dc3545;">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="fas fa-exclamation-circle fa-lg text-danger"></i>
+                        <span style="flex: 1;">${errorMessage}</span>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                </div>
+            `;
+            $('#streamProgress').after(alertHtml);
         });
-
-        // ================================================================
-        //  GESTION DES EVENEMENTS SSE
-        // ================================================================
         function handleSSE(evt) {
             if (evt.type === 'catalogue') {
                 if (evt.image_url) {
                     $('#lastCatalogueImg').attr('src', evt.image_url).closest('.alert').show();
-                    $('#streamStatus').text(`Traitement de la page ${evt.page}/${evt.total_pages}...`);
+                    $('#streamStatus').text('Traitement de la page ' + evt.page + '/' + evt.total_pages + '...');
                 }
-                $('#streamStatus').text('Detection des produits...');
+                $('#streamStatus').text('Détection des produits...');
 
             } else if (evt.type === 'page_total') {
                 totalProduits = evt.count;
-                $('#streamStatus').text(`Page ${evt.page}/${evt.total_pages}: ${totalProduits} produits détectés`);
+                $('#streamStatus').text('Page ' + evt.page + '/' + evt.total_pages + ' : ' + totalProduits + ' produits détectés');
                 if (totalProduits === 0) {
-                    $('#streamStatus').text(`Page ${evt.page}/${evt.total_pages}: Aucun produit detecte.`);
+                    $('#streamStatus').text('Page ' + evt.page + '/' + evt.total_pages + ' : Aucun produit détecté.');
                 }
 
             } else if (evt.type === 'product') {
                 nbTraites++;
                 var pct = totalProduits > 0 ? Math.round((nbTraites / totalProduits) * 100) : 100;
                 $('#streamBar').css('width', pct + '%');
-                $('#streamCounter').text(`Page ${evt.page}: ${nbTraites} / ${totalProduits} produits traites`);
+                $('#streamCounter').text('Page ' + evt.page + ' : ' + nbTraites + ' / ' + totalProduits + ' produits traités');
                 appendProductRow(evt);
 
             } else if (evt.type === 'page_done') {
-                $('#streamStatus').text(`Page ${evt.page}/${evt.total_pages}: ${evt.count} produits extraits`);
+                $('#streamStatus').text('Page ' + evt.page + '/' + evt.total_pages + ' : ' + evt.count + ' produits extraits');
                 
             } else if (evt.type === 'done') {
                 $('#streamBar').css('width', '100%').removeClass('progress-bar-animated');
                 $('#streamSpinner').hide();
-                $('#streamStatus').text(`${evt.count} produits extraits sur ${evt.pages} page(s)`);
-                $('#streamCounter').text('Vous pouvez maintenant verifier et sauvegarder.');
+                $('#streamStatus').text(evt.count + ' produits extraits sur ' + evt.pages + ' page(s)');
+                $('#streamCounter').text('Vous pouvez maintenant vérifier et sauvegarder.');
                 updatePendingBadge();
 
             } else if (evt.type === 'error') {
-                $('#streamStatus').text('Erreur : ' + evt.message);
-                $('#uploadBtn').prop('disabled', false).html('<i class="fas fa-upload"></i> Uploader');
+                // 🔥 AFFICHER L'ERREUR DANS L'INTERFACE
+                $('#streamStatus').text('❌ Erreur : ' + evt.message);
+                $('#streamSpinner').hide();
+                $('#streamBar').css('width', '100%').addClass('bg-danger');
+                
+                // Afficher un toast d'erreur
+                showToast('error', '❌ ' + evt.message);
+                
+                // Réactiver le bouton
+                $('#uploadBtn').prop('disabled', false).html('<i class="fas fa-upload me-1"></i> Importer');
             }
         }
     });
-        // ================================================================
-        //  FILTRE PAR MARQUE (FLEXIBLE) ET SUPPRESSION PAR MARQUE
-        // ================================================================
 
-        // Variables
-        var allMarques = [];
-        var currentFilterMarque = '';
-        var debugMode = true;
+    // ================================================================
+    //  FILTRE PAR MARQUE
+    // ================================================================
 
-        // Fonction de debug
-        function debugLog(message, type) {
-            if (!debugMode) return;
-            var debugInfo = $('#debugInfo');
-            debugInfo.show();
-            var timestamp = new Date().toLocaleTimeString();
-            var prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : '🔍';
-            debugInfo.html(prefix + ' [' + timestamp + '] ' + message);
-            console.log(prefix + ' ' + message);
-        }
+    var allMarques = [];
+    var currentFilterMarque = '';
 
-        // Charger la liste des marques
-        function chargerMarques() {
-            debugLog('Chargement des marques...', 'info');
-            
-            $.ajax({
-                url: "{% url 'get_marques_list' %}",
-                method: 'GET',
-                success: function(response) {
-                    if (response.success && response.marques.length > 0) {
-                        allMarques = response.marques;
-                        debugLog('✅ ' + allMarques.length + ' marques chargées: ' + allMarques.join(', '), 'success');
-                        
-                        // Afficher les suggestions
-                        afficherSuggestions(allMarques);
-                        
-                        $('#filterSection').show();
-                        $('#debugStatus').removeClass('bg-secondary').addClass('bg-success').text('Debug: ' + allMarques.length + ' marques');
-                    } else {
-                        debugLog('⚠️ Aucune marque trouvée', 'error');
-                        $('#filterSection').hide();
-                        $('#debugStatus').removeClass('bg-secondary').addClass('bg-warning').text('Debug: Aucune marque');
-                    }
-                },
-                error: function(xhr) {
-                    debugLog('❌ Erreur lors du chargement des marques: ' + xhr.status, 'error');
-                    $('#filterSection').hide();
-                    $('#debugStatus').removeClass('bg-secondary').addClass('bg-danger').text('Debug: Erreur');
-                }
-            });
-        }
-
-        // Afficher les suggestions de marques
-        function afficherSuggestions(marques) {
-            var container = $('#suggestionsContainer');
-            container.empty();
-            
-            if (marques.length === 0) {
-                $('#marqueSuggestions').hide();
-                return;
-            }
-            
-            // Afficher les 10 premières marques
-            var displayMarques = marques.slice(0, 10);
-            displayMarques.forEach(function(marque) {
-                var badge = $('<span class="badge bg-light text-dark border p-2 me-1 mb-1" style="cursor:pointer;">')
-                    .text(marque)
-                    .on('click', function() {
-                        $('#marqueSearchInput').val(marque);
-                        applyFilter();
-                    });
-                container.append(badge);
-            });
-            
-            if (marques.length > 10) {
-                container.append('<span class="badge bg-light text-muted p-2 me-1 mb-1">+' + (marques.length - 10) + ' autres</span>');
-            }
-            
-            $('#marqueSuggestions').show();
-        }
-
-        // Normaliser une chaîne pour la recherche (insensible à la casse et aux caractères spéciaux)
-        function normalizeString(str) {
-            if (!str) return '';
-            return str
-                .toLowerCase()
-                .trim()
-                .replace(/[^a-z0-9]/g, '') // Enlever les caractères spéciaux
-                .replace(/\s+/g, ''); // Enlever les espaces
-        }
-
-        // Appliquer le filtre
-        function applyFilter() {
-            var searchTerm = $('#marqueSearchInput').val().trim();
-            
-            debugLog('🔍 Application du filtre pour: "' + searchTerm + '"', 'info');
-            
-            if (!searchTerm) {
-                debugLog('⚠️ Terme de recherche vide, réinitialisation du filtre', 'info');
-                resetFilter();
-                return;
-            }
-            
-            // Normaliser le terme de recherche
-            var normalizedSearch = normalizeString(searchTerm);
-            debugLog('🔍 Terme normalisé: "' + normalizedSearch + '"', 'info');
-            
-            var found = false;
-            var matchedMarque = '';
-            var visibleCount = 0;
-            
-            // Parcourir toutes les lignes du tableau
-            $('#productTableBody tr').each(function() {
-                var row = $(this);
-                var rowMarque = row.find('td:eq(5)').text().trim();
-                var normalizedRowMarque = normalizeString(rowMarque);
-                
-                // Vérifier si la marque correspond (insensible à la casse et aux caractères spéciaux)
-                var match = normalizedRowMarque.indexOf(normalizedSearch) !== -1;
-                
-                if (match) {
-                    row.show();
-                    visibleCount++;
-                    found = true;
-                    matchedMarque = rowMarque;
-                    debugLog('✅ Correspondance trouvée: "' + rowMarque + '"', 'success');
+    function chargerMarques() {
+        $.ajax({
+            url: "{% url 'get_marques_list' %}",
+            method: 'GET',
+            success: function(response) {
+                if (response.success && response.marques.length > 0) {
+                    allMarques = response.marques;
+                    afficherSuggestions(allMarques);
+                    $('#filterSection').show();
                 } else {
-                    row.hide();
+                    $('#filterSection').hide();
                 }
-            });
-            
-            // 🔥 CORRECTION 1 : Désélectionner toutes les lignes cachées
-            $('#productTableBody tr:hidden').find('input[name="selected_products"]').prop('checked', false);
-            debugLog('🔽 Lignes cachées désélectionnées', 'info');
-            
-            // 🔥 CORRECTION 2 : Mettre à jour le "Select All" en fonction des lignes visibles
-            var visibleCheckboxes = $('#productTableBody tr:visible input[name="selected_products"]');
-            var checkedVisible = visibleCheckboxes.filter(':checked').length;
-            var totalVisible = visibleCheckboxes.length;
-            
-            // Décocher "Select All" si toutes les lignes visibles ne sont pas cochées
-            if (checkedVisible === totalVisible && totalVisible > 0) {
-                $('#selectAll2').prop('checked', true);
-            } else {
-                $('#selectAll2').prop('checked', false);
+            },
+            error: function() {
+                $('#filterSection').hide();
             }
-            debugLog('🔄 "Select All" mis à jour: ' + ($('#selectAll2').prop('checked') ? 'coché' : 'décoché'), 'info');
-            
-            // 🔥 CORRECTION 3 : Garder le tableau visible même si aucun produit trouvé
-            if (found) {
-                currentFilterMarque = searchTerm;
-                $('#filterInfo').html('🔍 <strong>' + visibleCount + '</strong> produit(s) trouvé(s) pour la marque <strong>"' + matchedMarque + '"</strong>');
-                $('#debugInfo').show();
-                debugLog('✅ Filtre appliqué: ' + visibleCount + ' produits visibles', 'success');
-                
-                // Afficher le tableau avec les produits trouvés
-                $('#productSection').show();
-                $('#noProductsMessage').hide();
-                
-            } else {
-                // 🔥 CORRECTION : Tableau reste visible mais vide
-                $('#filterInfo').html('⚠️ Aucun produit trouvé pour la marque <strong>"' + searchTerm + '"</strong>');
-                debugLog('⚠️ Aucun produit trouvé pour "' + searchTerm + '"', 'error');
-                
-                // 🔥 Le tableau reste visible, toutes les lignes sont cachées
-                $('#productSection').show(); // Garder le tableau visible
-                
-                // 🔥 Afficher un message dans le tableau lui-même
-                // Vider le corps du tableau et ajouter une ligne de message
-                var $tableBody = $('#productTableBody');
-                $tableBody.empty(); // Vider toutes les lignes
-                $tableBody.append(
-                    '<tr id="no-result-row">' +
-                    '<td colspan="15" class="text-center text-muted py-4">' +
-                    '<i class="fas fa-search fa-2x d-block mb-2"></i>' +
-                    'Aucun produit trouvé pour la marque <strong>"' + searchTerm + '"</strong><br>' +
-                    '<small>Essayez une autre marque ou réinitialisez le filtre</small>' +
-                    '</td>' +
-                    '</tr>'
-                );
-                
-                // Cacher le message "Tous les produits ont été sauvegardés"
-                $('#noProductsMessage').hide();
-                
-                // Afficher les suggestions
-                var suggestions = allMarques.filter(function(m) {
-                    return normalizeString(m).indexOf(normalizedSearch) !== -1;
-                });
-                
-                if (suggestions.length > 0) {
-                    $('#filterInfo').append('<br><small>💡 Essayez: ' + suggestions.join(', ') + '</small>');
-                    debugLog('💡 Suggestions: ' + suggestions.join(', '), 'info');
-                } else if (allMarques.length > 0) {
-                    var displayMarques = allMarques.slice(0, 5).join(', ');
-                    $('#filterInfo').append('<br><small>💡 Marques disponibles: ' + displayMarques + (allMarques.length > 5 ? '...' : '') + '</small>');
-                    debugLog('💡 Marques disponibles: ' + displayMarques, 'info');
-                }
-                
-                // Mettre à jour le badge
-                $('#pendingBadge').text('0 produits en attente');
-                $('.card-header .badge.bg-warning').text('0 produits en attente');
-                $('#totalPendingBadge').text('0 produit(s) en attente');
-            }
-        }
+        });
+    }
 
-        // Réinitialiser le filtre
-        function resetFilter() {
-            debugLog('🔄 Réinitialisation du filtre', 'info');
-            
-            $('#marqueSearchInput').val('');
-            currentFilterMarque = '';
-            $('#filterInfo').html('');
-            $('#debugInfo').hide();
-            
-            // 🔥 CORRECTION : Reconstruire le tableau avec tous les produits
-            var $tableBody = $('#productTableBody');
-            $tableBody.empty(); // Vider le tableau
-            
-            // Recharger tous les produits depuis les données
-            var productData = $('#productData').data('products');
-            if (productData && productData.length > 0) {
-                productData.forEach(function(p) {
-                    var row = createProductRow(p);
-                    $tableBody.append(row);
+    function afficherSuggestions(marques) {
+        var container = $('#suggestionsContainer');
+        container.empty();
+        
+        if (marques.length === 0) {
+            $('#marqueSuggestions').hide();
+            return;
+        }
+        
+        var displayMarques = marques.slice(0, 10);
+        displayMarques.forEach(function(marque) {
+            var badge = $('<span class="badge bg-light text-dark border p-2 me-1 mb-1" style="cursor:pointer;">')
+                .text(marque)
+                .on('click', function() {
+                    $('#marqueSearchInput').val(marque);
+                    applyFilter();
                 });
-            }
+            container.append(badge);
+        });
+        
+        if (marques.length > 10) {
+            container.append('<span class="badge bg-light text-muted p-2 me-1 mb-1">+' + (marques.length - 10) + ' autres</span>');
+        }
+        
+        $('#marqueSuggestions').show();
+    }
+
+    function normalizeString(str) {
+        if (!str) return '';
+        return str.toLowerCase().trim().replace(/[^a-z0-9]/g, '').replace(/\s+/g, '');
+    }
+
+    function applyFilter() {
+        var searchTerm = $('#marqueSearchInput').val().trim();
+        
+        if (!searchTerm) {
+            resetFilter();
+            return;
+        }
+        
+        var normalizedSearch = normalizeString(searchTerm);
+        var found = false;
+        var visibleCount = 0;
+        
+        $('#productTableBody tr').each(function() {
+            var row = $(this);
+            var rowMarque = row.find('td:eq(5)').text().trim();
+            var normalizedRowMarque = normalizeString(rowMarque);
             
-            // Afficher le tableau
+            var match = normalizedRowMarque.indexOf(normalizedSearch) !== -1;
+            
+            if (match) {
+                row.show();
+                visibleCount++;
+                found = true;
+            } else {
+                row.hide();
+            }
+        });
+        
+        $('#productTableBody tr:hidden').find('input[name="selected_products"]').prop('checked', false);
+        
+        if (found) {
+            currentFilterMarque = searchTerm;
+            $('#filterInfo').html('🔍 <strong>' + visibleCount + '</strong> produit(s) trouvé(s)');
             $('#productSection').show();
             $('#noProductsMessage').hide();
             
-            var totalCount = $('#productTableBody tr').length;
-            debugLog('🔄 ' + totalCount + ' produits affichés', 'success');
-            
-            // Mettre à jour les badges
-            updateFilterBadges(totalCount);
-        }
-
-        // Fonction helper pour créer une ligne de produit
-        function createProductRow(p) {
-            var imgHtml = p.image_url
-                ? '<img src="' + p.image_url + '" class="product-thumb" style="width:60px;height:60px;object-fit:cover;border-radius:5px;border:1px solid #ddd;cursor:pointer;" title="Cliquer pour agrandir" onclick="window.open(this.src, \'_blank\')">'
-                : '<span class="text-muted"><i class="fas fa-image"></i></span>';
-                
-            var prixHtml = '';
-            if (p.prix) {
-                var prix = parseFloat(p.prix);
-                if (!isNaN(prix)) {
-                    prixHtml = '<span class="fw-bold text-success">' + prix.toFixed(3) + '</span>';
-                }
-            }
-
-            var prixAvantHtml = '';
-            if (p.prix_avant) {
-                var prixAvant = parseFloat(p.prix_avant);
-                if (!isNaN(prixAvant)) {
-                    prixAvantHtml = '<span class="text-decoration-line-through text-danger">' + prixAvant.toFixed(3) + '</span>';
-                }
-            }
-
-            var pctHtml = p.pourcentage ? '<span class="badge bg-danger">' + p.pourcentage + '%</span>' : '';
-            var rowNum = $('#productTableBody tr').length + 1;
-
-            return $('<tr id="prod-row-' + p.id + '">').html(
-                '<td><input type="checkbox" name="selected_products" value="' + p.id + '"></td>' +
-                '<td>' + rowNum + '</td>' +
-                '<td>' + imgHtml + '</td>' +
-                '<td>' + escHtml(p.nom_fr) + '</td>' +
-                '<td>' + escHtml(p.nom_ar) + '</td>' +
-                '<td>' + escHtml(p.marque) + '</td>' +
-                '<td>' + prixHtml + '</td>' +
-                '<td>' + prixAvantHtml + '</td>' +
-                '<td>' + pctHtml + '</td>' +
-                '<td>' + escHtml(p.desc_1) + '</td>' +
-                '<td>' + escHtml(p.desc_2) + '</td>' +
-                '<td>' + escHtml(p.desc_3) + '</td>' +
-                '<td>' + escHtml(p.note_1) + '</td>' +
-                '<td>' + escHtml(p.note_2) + '</td>' +
-                '<td><a href="/product/edit/' + p.id + '/" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a></td>'
+        } else {
+            var $tableBody = $('#productTableBody');
+            $tableBody.empty();
+            $tableBody.append(
+                '<tr id="no-result-row">' +
+                '<td colspan="15" class="text-center text-muted py-4">' +
+                '<i class="fas fa-search fa-2x d-block mb-2"></i>' +
+                'Aucun produit trouvé pour la marque <strong>"' + searchTerm + '"</strong><br>' +
+                '<small>Essayez une autre marque ou réinitialisez le filtre</small>' +
+                '</td>' +
+                '</tr>'
             );
+            $('#noProductsMessage').hide();
         }
         
-        // Mettre à jour les badges
-        function updateFilterBadges(count) {
-            if (count === undefined) {
-                count = $('#productTableBody tr:visible').length;
-            }
-            
-            $('#pendingBadge').text(count + ' produits en attente');
-            $('.card-header .badge.bg-warning').text(count + ' produits en attente');
-            $('#totalPendingBadge').text(count + ' produit(s) en attente');
-            
-            if (count === 0) {
-                $('#productSection').hide();
-                $('#noProductsMessage').show();
-                $('#addProductBtn').hide();
-                $('#filterSection').hide();
-            } else {
-                $('#productSection').show();
-                $('#noProductsMessage').hide();
-                $('#addProductBtn').show();
-                $('#filterSection').show();
-            }
+        updateFilterBadges(visibleCount);
+    }
+
+    function resetFilter() {
+        $('#marqueSearchInput').val('');
+        currentFilterMarque = '';
+        $('#filterInfo').html('');
+        
+        var $tableBody = $('#productTableBody');
+        $tableBody.empty();
+        
+        var productData = $('#productData').data('products');
+        if (productData && productData.length > 0) {
+            productData.forEach(function(p) {
+                var row = createProductRow(p);
+                $tableBody.append(row);
+            });
         }
-                // Événements
-        $(document).on('input', '#marqueSearchInput', function() {
-            // Filtrer les suggestions en temps réel
-            var searchTerm = $(this).val().trim();
-            if (searchTerm.length > 0) {
-                var normalizedSearch = normalizeString(searchTerm);
-                var suggestions = allMarques.filter(function(m) {
-                    return normalizeString(m).indexOf(normalizedSearch) !== -1;
-                });
-                afficherSuggestions(suggestions);
-                debugLog('🔍 Suggestions pour "' + searchTerm + '": ' + suggestions.length + ' trouvées', 'info');
-            } else {
-                afficherSuggestions(allMarques);
-            }
-        });
+        
+        $('#productSection').show();
+        $('#noProductsMessage').hide();
+        
+        var totalCount = $('#productTableBody tr').length;
+        updateFilterBadges(totalCount);
+    }
 
-        $(document).on('keypress', '#marqueSearchInput', function(e) {
-            if (e.which === 13) { // Entrée
-                applyFilter();
+    function createProductRow(p) {
+        var imgHtml = p.image_url
+            ? '<img src="' + p.image_url + '" class="product-thumb" style="width:50px;height:50px;object-fit:cover;border-radius:5px;border:1px solid #ddd;cursor:pointer;" title="Cliquer pour agrandir" onclick="window.open(this.src, \'_blank\')">'
+            : '<span class="text-muted"><i class="fas fa-image"></i></span>';
+            
+        // 🔥 STYLE PRIX - Même que product_list.html
+        var prixHtml = '';
+        if (p.prix) {
+            var prix = parseFloat(p.prix);
+            if (!isNaN(prix)) {
+                prixHtml = '<span class="fw-bold text-primary">' + prix.toFixed(3) + '</span>';
             }
-        });
+        } else {
+            prixHtml = '<span class="text-muted">-</span>';
+        }
 
-        $(document).on('click', '#applyFilterBtn', function() {
+        // 🔥 STYLE PRIX AVANT - Même que product_list.html
+        var prixAvantHtml = '';
+        if (p.prix_avant) {
+            var prixAvant = parseFloat(p.prix_avant);
+            if (!isNaN(prixAvant)) {
+                prixAvantHtml = '<span class="text-decoration-line-through text-muted">' + prixAvant.toFixed(3) + '</span>';
+            }
+        } else {
+            prixAvantHtml = '<span class="text-muted">-</span>';
+        }
+
+        // 🔥 STYLE POURCENTAGE - Même que product_list.html
+        var pctHtml = '';
+        if (p.pourcentage) {
+            var pct = parseFloat(p.pourcentage);
+            if (!isNaN(pct)) {
+                pctHtml = '<span class="badge bg-success rounded-pill">' + pct.toFixed(0) + '%</span>';
+            }
+        } else {
+            pctHtml = '<span class="text-muted">-</span>';
+        }
+        
+        var rowNum = $('#productTableBody tr').length + 1;
+
+        return $('<tr id="prod-row-' + p.id + '">').html(
+            '<td><input type="checkbox" name="selected_products" value="' + p.id + '"></td>' +
+            '<td class="fw-semibold text-muted">' + rowNum + '</td>' +
+            '<td>' + imgHtml + '</td>' +
+            '<td class="fw-medium">' + escHtml(p.nom_fr) + '</td>' +
+            '<td>' + escHtml(p.nom_ar) + '</td>' +
+            '<td>' + escHtml(p.marque) + '</td>' +
+            '<td class="text-end">' + prixHtml + '</td>' +
+            '<td class="text-end">' + prixAvantHtml + '</td>' +
+            '<td class="text-center">' + pctHtml + '</td>' +
+            '<td>' + escHtml(p.desc_1) + '</td>' +
+            '<td>' + escHtml(p.desc_2) + '</td>' +
+            '<td>' + escHtml(p.desc_3) + '</td>' +
+            '<td>' + escHtml(p.note_1) + '</td>' +
+            '<td>' + escHtml(p.note_2) + '</td>' +
+            '<td><a href="/product/edit/' + p.id + '/" class="btn btn-outline-warning btn-sm"><i class="fas fa-edit"></i></a></td>'
+        );
+    }
+
+    function updateFilterBadges(count) {
+        if (count === undefined) {
+            count = $('#productTableBody tr:visible').length;
+        }
+        
+        $('#pendingBadge').text(count + ' produit' + (count > 1 ? 's' : '') + ' en attente');
+        $('#totalPendingBadge').text(count + ' produit' + (count > 1 ? 's' : '') + ' en attente');
+        
+        if (count === 0) {
+            $('#productSection').hide();
+            $('#noProductsMessage').show();
+            $('#addProductBtn').hide();
+            $('#filterSection').hide();
+        } else {
+            $('#productSection').show();
+            $('#noProductsMessage').hide();
+            $('#addProductBtn').show();
+            $('#filterSection').show();
+        }
+    }
+
+    $(document).on('input', '#marqueSearchInput', function() {
+        var searchTerm = $(this).val().trim();
+        if (searchTerm.length > 0) {
+            var normalizedSearch = normalizeString(searchTerm);
+            var suggestions = allMarques.filter(function(m) {
+                return normalizeString(m).indexOf(normalizedSearch) !== -1;
+            });
+            afficherSuggestions(suggestions);
+        } else {
+            afficherSuggestions(allMarques);
+        }
+    });
+
+    $(document).on('keypress', '#marqueSearchInput', function(e) {
+        if (e.which === 13) {
             applyFilter();
-        });
+        }
+    });
 
-        $(document).on('click', '#resetFilterBtn', function() {
-            resetFilter();
-        });
+    $(document).on('click', '#applyFilterBtn', function() {
+        applyFilter();
+    });
 
-        $(document).on('click', '#deleteByMarqueBtn', function() {
-            deleteByMarque();
-        });
+    $(document).on('click', '#resetFilterBtn', function() {
+        resetFilter();
+    });
 
-        // 🔥 AJOUT DE L'EVENEMENT POUR LE BOUTON SAUVEGARDER PAR MARQUE
-        $(document).on('click', '#saveByMarqueBtn', function() {
-            saveByMarque();
-        });
+    $(document).on('input change', '#id_note', function() {
+        var noteValue = $(this).val();
+        $('#hiddenNote').val(noteValue);
+    });
 
-        $(document).on('input change', '#id_note', function() {
-            var noteValue = $(this).val();
+    $(document).on('click', '#resetFilterBtn', function() {
+        setTimeout(function() {
+            var noteValue = $('#id_note').val() || '';
             $('#hiddenNote').val(noteValue);
-            console.log('📝 Note mise à jour dans le champ caché:', noteValue);
-        });
+        }, 100);
+    });
 
-        // 🔥 Quand le tableau est reconstruit, mettre à jour le champ caché
-        $(document).on('click', '#resetFilterBtn', function() {
-            // Après réinitialisation, mettre à jour le champ caché
-            setTimeout(function() {
-                var noteValue = $('#id_note').val() || '';
-                $('#hiddenNote').val(noteValue);
-            }, 100);
-        });
-        // Initialiser le chargement des marques
-        chargerMarques();
+    chargerMarques();
 
-        // Surcharger updatePendingBadge
-        var originalUpdatePendingBadge = updatePendingBadge;
-        updatePendingBadge = function() {
-            var count = $('#productTableBody tr').length;
-            updateFilterBadges(count);
-            return count;
-        };
+    var originalUpdatePendingBadge = updatePendingBadge;
+    updatePendingBadge = function() {
+        var count = $('#productTableBody tr').length;
+        updateFilterBadges(count);
+        return count;
+    };
 
-        // Surcharger appendProductRow pour rafraîchir les marques
-        var originalAppendProductRow = appendProductRow;
-        appendProductRow = function(p) {
-            originalAppendProductRow(p);
-            // Recharger les marques après un certain délai
-            setTimeout(function() {
-                chargerMarques();
-            }, 500);
-            debugLog('🔄 Produit ajouté, rechargement des marques...', 'info');
-        };       
+    var originalAppendProductRow = appendProductRow;
+    appendProductRow = function(p) {
+        originalAppendProductRow(p);
+        setTimeout(function() {
+            chargerMarques();
+        }, 500);
+    };
 });
 </script>
 {% endblock %}

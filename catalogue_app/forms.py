@@ -26,9 +26,9 @@ class UploadForm(forms.Form):
             'class': 'form-control',
             'placeholder': 'Ex: Saint Valentin, Noël, Eid, Promotion été...'
         }),
-        label="Note (optionnelle)"
+        label="Note"
     )
-    # 🔥 Champ pour plusieurs images
+    # Champ pour plusieurs images
     images = forms.FileField(
         widget=MultipleFileInput(attrs={
             'class': 'form-control',
@@ -38,6 +38,19 @@ class UploadForm(forms.Form):
         required=True,
         label="Images du catalogue (sélectionnez plusieurs)"
     )
+    def clean(self):
+        cleaned_data = super().clean()
+        date_debut = cleaned_data.get('date_debut')
+        date_fin = cleaned_data.get('date_fin')
+        
+        # VALIDATION : date_debut doit être < date_fin
+        if date_debut and date_fin:
+            if date_debut >= date_fin:
+                raise forms.ValidationError(
+                    "La date de début doit être antérieure à la date de fin."
+                )
+        
+        return cleaned_data   
     
 class ProduitForm(forms.ModelForm):
     class Meta:

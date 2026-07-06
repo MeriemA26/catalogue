@@ -3,145 +3,151 @@
 {% load static %}
 
 {% block content %}
-<h2>✏️ Édition du produit</h2>
+<!-- En-tête -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h5 class="fw-bold mb-0">
+        Édition du produit
+    </h5>
+</div>
 
 <!-- Image du produit -->
 {% if produit.image_produit %}
-<div class="card mt-4">
-    <div class="card-header">
-        <h5>🖼️ Image du produit</h5>
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 py-2">
+        <h6 class="fw-bold mb-0"><i class="fas fa-image text-secondary me-2"></i>Image</h6>
     </div>
-    <div class="card-body text-center">
+    <div class="card-body text-center py-3">
         <img src="{{ produit.image_produit.url }}" alt="{{ produit.nom }}" 
-             class="img-fluid" style="max-height: 300px; object-fit: contain;">
+             class="img-fluid rounded" style="max-height: 250px; object-fit: contain; border: 1px solid #dee2e6;">
     </div>
 </div>
 {% endif %}
 
-<div class="card">
+<!-- Formulaire -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 py-2">
+        <h6 class="fw-bold mb-0"><i class="fas fa-pencil-alt text-secondary me-2"></i>Modifier les informations</h6>
+    </div>
     <div class="card-body">
         <form method="post" id="editProductForm">
             {% csrf_token %}
             
+            <!-- Ligne 1 : Nom (FR) | Nom (AR) | Marque -->
             <div class="row">
                 <div class="col-md-4">
                     <div class="mb-3">
-                        <label for="{{ form.nom_fr.id_for_label }}" class="form-label">Nom (FR)</label>
+                        <label for="{{ form.nom_fr.id_for_label }}" class="form-label fw-semibold">Nom (FR)</label>
                         {{ form.nom_fr }}
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="mb-3">
-                        <label for="{{ form.nom_ar.id_for_label }}" class="form-label">Nom (AR)</label>
+                        <label for="{{ form.nom_ar.id_for_label }}" class="form-label fw-semibold">Nom (AR)</label>
                         {{ form.nom_ar }}
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="mb-3">
-                        <label for="{{ form.marque.id_for_label }}" class="form-label">Marque</label>
+                        <label for="{{ form.marque.id_for_label }}" class="form-label fw-semibold">Marque</label>
                         {{ form.marque }}
                     </div>
                 </div>
             </div>
 
+            <!-- Ligne 2 : Prix | Prix Avant | % | Remise | Calculer -->
             <div class="row">
                 <div class="col-md-3">
                     <div class="mb-3">
-                        <label for="{{ form.prix.id_for_label }}" class="form-label">Prix (DT)</label>
+                        <label for="{{ form.prix.id_for_label }}" class="form-label fw-semibold">Prix (DT)</label>
                         {{ form.prix }}
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="mb-3">
-                        <label for="{{ form.prix_avant.id_for_label }}" class="form-label">Prix Avant (DT)</label>
+                        <label for="{{ form.prix_avant.id_for_label }}" class="form-label fw-semibold">Prix Avant (DT)</label>
                         {{ form.prix_avant }}
                     </div>
                 </div>
                 <div class="col-md-2">
                     <div class="mb-3">
-                        <label for="{{ form.pourcentage.id_for_label }}" class="form-label">%</label>
+                        <label for="{{ form.pourcentage.id_for_label }}" class="form-label fw-semibold">%</label>
                         {{ form.pourcentage }}
                     </div>
                 </div>
                 <div class="col-md-2">
                     <div class="mb-3">
-                        <label for="{{ form.remise.id_for_label }}" class="form-label">Remise (DT)</label>
+                        <label for="{{ form.remise.id_for_label }}" class="form-label fw-semibold">Remise (DT)</label>
                         {{ form.remise }}
                     </div>
                 </div>
                 <div class="col-md-2">
                     <div class="mb-3">
-                        <label class="form-label">Action</label>
-                        <button type="button" class="btn btn-primary w-100" id="calculateBtn">
-                            <i class="fas fa-calculator"></i> Calculer
+                        <label class="form-label fw-semibold">Action</label>
+                        <button type="button" class="btn btn-primary w-100" id="calculateBtn" style="border-radius: 9999px;">
+                            <i class="fas fa-calculator me-1"></i> Calculer
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Résultat du calcul -->
+            <!-- Ligne 3 : Résultat du calcul -->
             <div class="row">
                 <div class="col-md-12">
                     <div class="mb-3">
-                        <label class="form-label">📊 Résultat</label>
-                        <div id="resultDisplay" class="p-2 border rounded bg-light text-center">
+                        <label class="form-label fw-semibold">Résultat</label>
+                        <div id="resultDisplay" class="p-3 border rounded bg-light text-center" style="border-color: #dee2e6 !important;">
                             <span class="text-muted">Modifiez les valeurs et cliquez sur "Calculer"</span>
                         </div>
                     </div>
                 </div>
             </div>
 
+            <hr>
+
+            <!-- Ligne 4 : Desc 1 | Desc 2 | Desc 3 | Note 1 | Note 2 -->
             <div class="row">
                 <div class="col-md-4">
                     <div class="mb-3">
-                        <label for="{{ form.desc_1.id_for_label }}" class="form-label">Desc 1</label>
+                        <label for="{{ form.desc_1.id_for_label }}" class="form-label fw-semibold">Desc 1</label>
                         {{ form.desc_1 }}
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="mb-3">
-                        <label for="{{ form.desc_2.id_for_label }}" class="form-label">Desc 2</label>
+                        <label for="{{ form.desc_2.id_for_label }}" class="form-label fw-semibold">Desc 2</label>
                         {{ form.desc_2 }}
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="mb-3">
-                        <label for="{{ form.desc_3.id_for_label }}" class="form-label">Desc 3</label>
+                        <label for="{{ form.desc_3.id_for_label }}" class="form-label fw-semibold">Desc 3</label>
                         {{ form.desc_3 }}
                     </div>
                 </div>
             </div>
 
-            <!-- 🆕 Descriptions supplémentaires saisies manuellement par l'utilisateur -->
-            <div class="row">
-                <div class="col-md-12">
-                    <hr>
-                    <label class="form-label fw-bold text-primary">
-                        <i class="fas fa-pen"></i> Notes (saisie manuelle)
-                    </label>
-                </div>
-            </div>
             <div class="row">
                 <div class="col-md-6">
                     <div class="mb-3">
-                        <label for="{{ form.note_1.id_for_label }}" class="form-label">Note 1</label>
+                        <label for="{{ form.note_1.id_for_label }}" class="form-label fw-semibold">Note 1</label>
                         {{ form.note_1 }}
                     </div>
                 </div>
                 <div class="col-md-6">
                     <div class="mb-3">
-                        <label for="{{ form.note_2.id_for_label }}" class="form-label">Note 2</label>
+                        <label for="{{ form.note_2.id_for_label }}" class="form-label fw-semibold">Note 2</label>
                         {{ form.note_2 }}
                     </div>
                 </div>
             </div>
 
-            <div class="btn-group">
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i> Enregistrer
+            <!-- Boutons -->
+            <div class="d-flex gap-2 mt-4">
+                <button type="submit" class="btn btn-primary" style="border-radius: 9999px;">
+                    <i class="fas fa-save me-1"></i>Enregistrer
                 </button>
-                <a href="{% url 'upload' %}" class="btn btn-outline-secondary">
-                    <i class="fas fa-arrow-left"></i> Retour
+                <a href="{% url 'upload' %}" class="btn btn-outline-secondary" style="border-radius: 9999px; text-decoration: none;">
+                    <i class="fas fa-arrow-left me-1"></i>Retour
                 </a>
             </div>
         </form>
@@ -161,8 +167,6 @@ $(document).ready(function() {
         return isNaN(n) ? null : n;
     }
 
-    // Fonction qui APPLIQUE les calculs - RÈGLE D'OR : ne JAMAIS écraser un champ déjà rempli.
-    // On ne calcule QUE les champs vides, à partir des champs déjà renseignés.
     function applyCalculation() {
         let prix = parseNumOrNull($('#id_prix').val());
         let prixAvant = parseNumOrNull($('#id_prix_avant').val());
@@ -177,11 +181,11 @@ $(document).ready(function() {
         let result = '';
         let changes = false;
 
-        // Cas 0 : tout est déjà rempli -> ON NE TOUCHE À RIEN
+        // Cas 0 : tout est déjà rempli
         if (!prixVide && !prixAvantVide && !pourcentageVide && !remiseVide) {
             result = 'Tous les champs sont déjà remplis. Videz un champ pour le recalculer.';
         }
-        // Cas 1 : prix vide, mais prix_avant + pourcentage connus -> calculer le prix
+        // Cas 1 : prix vide, prix_avant + pourcentage connus
         else if (prixVide && !prixAvantVide && !pourcentageVide && pourcentage > 0 && pourcentage <= 100) {
             let newPrix = prixAvant * (1 - pourcentage / 100);
             $('#id_prix').val(newPrix.toFixed(3));
@@ -193,7 +197,7 @@ $(document).ready(function() {
                 result += ` | Remise : ${newRemise.toFixed(3)} DT`;
             }
         }
-        // Cas 2 : prix_avant vide, mais prix + pourcentage connus -> calculer prix_avant
+        // Cas 2 : prix_avant vide, prix + pourcentage connus
         else if (prixAvantVide && !prixVide && !pourcentageVide && pourcentage > 0 && pourcentage <= 100) {
             let newPrixAvant = prix / (1 - pourcentage / 100);
             $('#id_prix_avant').val(newPrixAvant.toFixed(3));
@@ -205,7 +209,7 @@ $(document).ready(function() {
                 result += ` | Remise : ${newRemise.toFixed(3)} DT`;
             }
         }
-        // Cas 3 : pourcentage vide, mais prix + prix_avant connus -> calculer le pourcentage
+        // Cas 3 : pourcentage vide, prix + prix_avant connus
         else if (pourcentageVide && !prixVide && !prixAvantVide) {
             if (prix < prixAvant) {
                 let newPourcentage = ((prixAvant - prix) / prixAvant) * 100;
@@ -221,7 +225,7 @@ $(document).ready(function() {
                 result = 'Le prix doit être inférieur au prix avant';
             }
         }
-        // Cas 4 : remise vide, mais prix + prix_avant connus -> calculer la remise
+        // Cas 4 : remise vide, prix + prix_avant connus
         else if (remiseVide && !prixVide && !prixAvantVide) {
             let newRemise = prixAvant - prix;
             $('#id_remise').val(newRemise.toFixed(3));
@@ -230,10 +234,10 @@ $(document).ready(function() {
             if (pourcentageVide && prixAvant > 0) {
                 let newPourcentage = (newRemise / prixAvant) * 100;
                 $('#id_pourcentage').val(newPourcentage.toFixed(0));
-                result += ` | %: ${newPourcentage.toFixed(0)}%`;
+                result += ` | % : ${newPourcentage.toFixed(0)}%`;
             }
         }
-        // Cas 5 : remise vide, mais prix + pourcentage connus -> calculer remise
+        // Cas 5 : remise vide, prix + pourcentage connus
         else if (remiseVide && !prixVide && !pourcentageVide && pourcentage > 0 && pourcentage <= 100) {
             let calcPrixAvant = prixAvantVide ? (prix / (1 - pourcentage / 100)) : prixAvant;
             let newRemise = calcPrixAvant - prix;
@@ -249,12 +253,12 @@ $(document).ready(function() {
         // Afficher le résultat
         if (changes) {
             $('#resultDisplay').html(`
-                <span class="text-success">✅ Champs mis à jour !</span>
+                <span class="text-success fw-bold">Champs mis à jour !</span>
                 <br><small class="text-muted">${result}</small>
             `);
         } else if (result) {
             $('#resultDisplay').html(`
-                <span class="text-warning">⚠️ ${result}</span>
+                <span class="text-warning fw-bold">${result}</span>
             `);
         } else {
             $('#resultDisplay').html(`
