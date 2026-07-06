@@ -29,12 +29,28 @@ sql_sync = SQLServerSync()
 # Configuration du logging - Désactiver complètement
 logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
+# catalogue_app/views.py
+
+def supprimer_catalogues_vides():
+    """Supprime tous les catalogues qui n'ont plus de produits"""
+    from django.db import models
+    catalogues_vides = Catalogue.objects.annotate(
+        nb_produits=models.Count('produits')
+    ).filter(nb_produits=0)
+    
+    count = catalogues_vides.count()
+    if count > 0:
+        for c in catalogues_vides:
+            print(f"🗑️ Suppression du catalogue vide ID {c.id} - {c.enseigne.nom}")
+            c.delete()
+        print(f"✅ {count} catalogues vides supprimés")
+    return count
 
 def index(request):
     """Page d'accueil - Tableau de bord simplifié"""
     from django.db.models import Count, Q
     from datetime import datetime
-    
+    supprimer_catalogues_vides()
     # Statistiques de base
     total_catalogues = Catalogue.objects.count()
     total_produits_sauvegardes = Produit.objects.filter(est_sauvegarde=True).count()
@@ -1209,7 +1225,7 @@ def delete_all_products(request):
 
 def product_list(request):
     """Liste des produits du dernier catalogue sauvegardé"""
-    
+    supprimer_catalogues_vides()
     # Récupérer le dernier catalogue QUI A DES PRODUITS SAUVEGARDÉS
     dernier_catalogue = None
     produits = []

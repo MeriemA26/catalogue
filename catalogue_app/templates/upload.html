@@ -140,7 +140,7 @@
 <!-- ================================================================ -->
 <!--  FILTRE PAR MARQUE                                               -->
 <!-- ================================================================ -->
-<div id="filterSection" style="{% if produits_non_sauvegardes == 0 %}display:none;{% endif %}" class="mt-3 mb-3">
+<div id="filterSection" class="mt-3 mb-3" style="display:none;">
     <div class="card border-0 shadow-sm">
         <div class="card-body">
             <h6 class="fw-bold mb-3">
@@ -393,9 +393,11 @@ $(document).ready(function () {
             });
             $('#noProductsMessage').hide();
             updatePendingBadge();
+            updateFilterVisibility();
         } else {
             $('#noProductsMessage').show();
             $('#productSection').hide();
+            updateFilterVisibility();
         }
     }
 
@@ -487,6 +489,7 @@ $(document).ready(function () {
         row.hide().fadeIn(400);
         
         updatePendingBadge();
+        updateFilterVisibility();
     }
 
     function buildTableSection() {
@@ -1025,6 +1028,14 @@ $(document).ready(function () {
     function applyFilter() {
         var searchTerm = $('#marqueSearchInput').val().trim();
         
+        // 🔥 Vérifier si le tableau a des produits
+        var totalRows = $('#productTableBody tr').length;
+        
+        if (totalRows === 0) {
+            showToast('info', 'Aucun produit disponible pour le filtrage.');
+            return;
+        }
+        
         if (!searchTerm) {
             resetFilter();
             return;
@@ -1034,6 +1045,7 @@ $(document).ready(function () {
         var found = false;
         var visibleCount = 0;
         
+        // Parcourir toutes les lignes du tableau
         $('#productTableBody tr').each(function() {
             var row = $(this);
             var rowMarque = row.find('td:eq(5)').text().trim();
@@ -1050,27 +1062,51 @@ $(document).ready(function () {
             }
         });
         
+        // Décocher les cases des lignes cachées
         $('#productTableBody tr:hidden').find('input[name="selected_products"]').prop('checked', false);
+        
+        // Supprimer l'ancien message "no-result" s'il existe
+        $('#no-result-row').remove();
         
         if (found) {
             currentFilterMarque = searchTerm;
+            // Afficher le compteur
             $('#filterInfo').html('🔍 <strong>' + visibleCount + '</strong> produit(s) trouvé(s)');
             $('#productSection').show();
             $('#noProductsMessage').hide();
-            
+            // Afficher le tableau
+            $('#productTableBody').show();
+            // Cacher le message "Aucun résultat"
+            $('#no-result-row').remove();
         } else {
+            // 🔥 AFFICHER UN MESSAGE DANS LE TABLEAU
             var $tableBody = $('#productTableBody');
-            $tableBody.empty();
+            
+            // Cacher toutes les lignes existantes
+            $tableBody.find('tr').hide();
+            
+            // Supprimer l'ancien message s'il existe
+            $('#no-result-row').remove();
+            
+            // Ajouter le message "Aucun résultat"
             $tableBody.append(
                 '<tr id="no-result-row">' +
-                '<td colspan="15" class="text-center text-muted py-4">' +
-                '<i class="fas fa-search fa-2x d-block mb-2"></i>' +
-                'Aucun produit trouvé pour la marque <strong>"' + searchTerm + '"</strong><br>' +
-                '<small>Essayez une autre marque ou réinitialisez le filtre</small>' +
+                '<td colspan="15" class="text-center py-4">' +
+                '<div style="padding: 20px 0;">' +
+                '<i class="fas fa-search fa-3x d-block mb-3" style="color: #d1d5db;"></i>' +
+                '<h6 class="fw-bold text-muted">Aucun résultat</h6>' +
+                '<p class="text-muted mb-0">Aucun produit trouvé pour la marque <strong>"' + searchTerm + '"</strong></p>' +
+                '<small class="text-muted">Essayez une autre marque ou réinitialisez le filtre</small>' +
+                '</div>' +
                 '</td>' +
                 '</tr>'
             );
+            
+            // 🔥 IMPORTANT : Garder productSection visible
+            $('#productSection').show();
             $('#noProductsMessage').hide();
+            $('#filterInfo').html('🔍 0 produit trouvé');
+            $('#addProductBtn').hide();
         }
         
         updateFilterBadges(visibleCount);
@@ -1080,6 +1116,9 @@ $(document).ready(function () {
         $('#marqueSearchInput').val('');
         currentFilterMarque = '';
         $('#filterInfo').html('');
+        
+        // Supprimer le message "no-result"
+        $('#no-result-row').remove();
         
         var $tableBody = $('#productTableBody');
         $tableBody.empty();
@@ -1092,11 +1131,16 @@ $(document).ready(function () {
             });
         }
         
+        // Afficher toutes les lignes
+        $tableBody.find('tr').show();
+        
         $('#productSection').show();
         $('#noProductsMessage').hide();
+        $('#addProductBtn').show();
         
         var totalCount = $('#productTableBody tr').length;
         updateFilterBadges(totalCount);
+        updateFilterVisibility();
     }
 
     function createProductRow(p) {
@@ -1158,6 +1202,22 @@ $(document).ready(function () {
         );
     }
 
+    // ================================================================
+    //  GESTION DE L'AFFICHAGE DU FILTRE
+    // ================================================================
+
+    function updateFilterVisibility() {
+        var hasProducts = $('#productTableBody tr').length > 0;
+        if (hasProducts) {
+            $('#filterSection').show();
+            $('#marqueSearchInput').prop('disabled', false);
+        } else {
+            $('#filterSection').hide();
+            $('#marqueSearchInput').prop('disabled', true);
+        }
+    }
+
+    // Appeler après chaque modification du tableau
     function updateFilterBadges(count) {
         if (count === undefined) {
             count = $('#productTableBody tr:visible').length;
@@ -1166,17 +1226,28 @@ $(document).ready(function () {
         $('#pendingBadge').text(count + ' produit' + (count > 1 ? 's' : '') + ' en attente');
         $('#totalPendingBadge').text(count + ' produit' + (count > 1 ? 's' : '') + ' en attente');
         
+        // 🔥 NE PAS CACHER productSection si c'est un résultat de filtre
+        // Vérifier si on est en mode filtre
+        var isFilterActive = $('#marqueSearchInput').val().trim().length > 0;
+        
         if (count === 0) {
-            $('#productSection').hide();
-            $('#noProductsMessage').show();
-            $('#addProductBtn').hide();
-            $('#filterSection').hide();
+            if (isFilterActive) {
+                // Mode filtre : on garde productSection visible pour afficher "Aucun résultat"
+                $('#productSection').show();
+                $('#noProductsMessage').hide();
+                $('#addProductBtn').hide();
+            } else {
+                // Pas de filtre : cacher productSection
+                $('#productSection').hide();
+                $('#noProductsMessage').show();
+                $('#addProductBtn').hide();
+            }
         } else {
             $('#productSection').show();
             $('#noProductsMessage').hide();
             $('#addProductBtn').show();
-            $('#filterSection').show();
         }
+        updateFilterVisibility();
     }
 
     $(document).on('input', '#marqueSearchInput', function() {
@@ -1199,6 +1270,11 @@ $(document).ready(function () {
     });
 
     $(document).on('click', '#applyFilterBtn', function() {
+        // Vérifier si le tableau a des produits
+        if ($('#productTableBody tr').length === 0) {
+            showToast('info', 'Aucun produit disponible pour le filtrage.');
+            return;
+        }
         applyFilter();
     });
 
@@ -1234,6 +1310,7 @@ $(document).ready(function () {
             chargerMarques();
         }, 500);
     };
+    
 });
 </script>
 {% endblock %}
