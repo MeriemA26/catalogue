@@ -935,6 +935,9 @@ def save_selected_products(request):
             note = request.POST.get('note', '').strip()
             catalogue_id = request.session.get('active_catalogue_id', None)
             
+            # 🔥 Récupérer le paramètre de redirection
+            redirect_to_list = request.POST.get('redirect_to_list', 'false') == 'true'
+            
             # 🔥 Sauvegarder la note si elle a changé
             if catalogue_id:
                 try:
@@ -955,7 +958,7 @@ def save_selected_products(request):
                 messages.warning(request, 'Aucun produit sélectionné.')
                 return redirect('upload')
             
-            # 🔥 Sauvegarder UNIQUEMENT les produits non sauvegardés
+            # 🔥 Sauvegarder UNIQUEMENT les produits sélectionnés non sauvegardés
             produits = Produit.objects.filter(id__in=product_ids, est_sauvegarde=False)
             count = produits.count()
             
@@ -975,28 +978,39 @@ def save_selected_products(request):
 
             restants = Produit.objects.filter(est_sauvegarde=False).count()
             
-            # 🔥 GARDER le catalogue dans la session QUOI QU'IL ARRIVE
-            if 'active_catalogue_id' not in request.session:
-                dernier_catalogue = Catalogue.objects.filter(
-                    produits__est_sauvegarde=False
-                ).distinct().order_by('-date_upload').first()
-                if dernier_catalogue:
-                    request.session['active_catalogue_id'] = dernier_catalogue.id
-                    print(f"✅ Catalogue ID {dernier_catalogue.id} sauvegardé dans la session")
-            
-            # Garder les images dans la session
-            images_actuelles = request.session.get('last_uploaded_images', None)
-            if images_actuelles:
-                request.session['last_uploaded_images'] = images_actuelles
+            # 🔥 GARDER le catalogue dans la session si des produits restent
+            if restants > 0:
+                if 'active_catalogue_id' not in request.session:
+                    dernier_catalogue = Catalogue.objects.filter(
+                        produits__est_sauvegarde=False
+                    ).distinct().order_by('-date_upload').first()
+                    if dernier_catalogue:
+                        request.session['active_catalogue_id'] = dernier_catalogue.id
+                        print(f"✅ Catalogue ID {dernier_catalogue.id} sauvegardé dans la session")
+                
+                # Garder les images dans la session
+                images_actuelles = request.session.get('last_uploaded_images', None)
                 if images_actuelles:
-                    request.session['last_uploaded_image'] = images_actuelles[0]
-                request.session.modified = True
-                print(f"✅ {len(images_actuelles)} images conservées dans la session")
+                    request.session['last_uploaded_images'] = images_actuelles
+                    if images_actuelles:
+                        request.session['last_uploaded_image'] = images_actuelles[0]
+                    request.session.modified = True
+                    print(f"✅ {len(images_actuelles)} images conservées dans la session")
+                else:
+                    image_actuelle = request.session.get('last_uploaded_image', None)
+                    if image_actuelle:
+                        request.session['last_uploaded_image'] = image_actuelle
+                        print(f"✅ Image conservée dans la session: {image_actuelle}")
             else:
-                image_actuelle = request.session.get('last_uploaded_image', None)
-                if image_actuelle:
-                    request.session['last_uploaded_image'] = image_actuelle
-                    print(f"✅ Image conservée dans la session: {image_actuelle}")
+                # 🔥 Plus de produits → Supprimer les données de session
+                if 'last_uploaded_images' in request.session:
+                    del request.session['last_uploaded_images']
+                if 'last_uploaded_image' in request.session:
+                    del request.session['last_uploaded_image']
+                if 'active_catalogue_id' in request.session:
+                    del request.session['active_catalogue_id']
+                request.session.modified = True
+                request.session.save()
             
             if restants == 0:
                 messages.success(request, f'Tous les {count} produits sélectionnés sont sauvegardés !')
@@ -1011,10 +1025,15 @@ def save_selected_products(request):
             print(f"📌 restants: {restants}")
             print("=" * 80)
             
+            # 🔥 Rediriger vers product_list si demandé
+            if redirect_to_list:
+                return redirect('upload')
+            else:
+                return redirect('upload')
+            
         except Exception as e:
             messages.error(request, f"Erreur lors de la sauvegarde: {str(e)}")
-        
-        return redirect('upload')
+            return redirect('upload')
     return redirect('upload')
 
 def save_all_products(request):
@@ -1075,7 +1094,6 @@ def save_all_products(request):
     return redirect('upload')
 
 # catalogue_app/views.py - CORRIGER delete_selected_products
-
 def delete_selected_products(request):
     """Supprimer les produits sélectionnés (depuis la base de données)"""
     if request.method == 'POST':
@@ -1085,6 +1103,9 @@ def delete_selected_products(request):
         print(f"📌 active_catalogue_id avant: {request.session.get('active_catalogue_id', 'NON TROUVÉ')}")
         print("=" * 80)
         try:
+            # 🔥 Récupérer le paramètre de redirection
+            redirect_to_list = request.POST.get('redirect_to_list', 'false') == 'true'
+            
             product_ids = request.POST.getlist('selected_products')
             
             # 🔥 FILTRER : Enlever les IDs vides
@@ -1125,31 +1146,41 @@ def delete_selected_products(request):
             
             restants = Produit.objects.filter(est_sauvegarde=False).count()
             
-            # 🔥 GARDER le catalogue dans la session QUOI QU'IL ARRIVE
-            if 'active_catalogue_id' not in request.session:
-                dernier_catalogue = Catalogue.objects.filter(
-                    produits__est_sauvegarde=False
-                ).distinct().order_by('-date_upload').first()
-                if dernier_catalogue:
-                    request.session['active_catalogue_id'] = dernier_catalogue.id
-                    print(f"✅ Catalogue ID {dernier_catalogue.id} sauvegardé dans la session")
-            
-            # Garder les images dans la session
-            images_actuelles = request.session.get('last_uploaded_images', None)
-            if images_actuelles:
-                request.session['last_uploaded_images'] = images_actuelles
+            # 🔥 GARDER le catalogue dans la session si des produits restent
+            if restants > 0:
+                if 'active_catalogue_id' not in request.session:
+                    dernier_catalogue = Catalogue.objects.filter(
+                        produits__est_sauvegarde=False
+                    ).distinct().order_by('-date_upload').first()
+                    if dernier_catalogue:
+                        request.session['active_catalogue_id'] = dernier_catalogue.id
+                        print(f"✅ Catalogue ID {dernier_catalogue.id} sauvegardé dans la session")
+                
+                images_actuelles = request.session.get('last_uploaded_images', None)
                 if images_actuelles:
-                    request.session['last_uploaded_image'] = images_actuelles[0]
-                request.session.modified = True
-                print(f"✅ {len(images_actuelles)} images conservées dans la session")
+                    request.session['last_uploaded_images'] = images_actuelles
+                    if images_actuelles:
+                        request.session['last_uploaded_image'] = images_actuelles[0]
+                    request.session.modified = True
+                    print(f"✅ {len(images_actuelles)} images conservées dans la session")
+                else:
+                    image_actuelle = request.session.get('last_uploaded_image', None)
+                    if image_actuelle:
+                        request.session['last_uploaded_image'] = image_actuelle
+                        print(f"✅ Image conservée dans la session: {image_actuelle}")
             else:
-                image_actuelle = request.session.get('last_uploaded_image', None)
-                if image_actuelle:
-                    request.session['last_uploaded_image'] = image_actuelle
-                    print(f"✅ Image conservée dans la session: {image_actuelle}")
+                # 🔥 Plus de produits → Supprimer les données de session
+                if 'last_uploaded_images' in request.session:
+                    del request.session['last_uploaded_images']
+                if 'last_uploaded_image' in request.session:
+                    del request.session['last_uploaded_image']
+                if 'active_catalogue_id' in request.session:
+                    del request.session['active_catalogue_id']
+                request.session.modified = True
+                request.session.save()
             
             if restants == 0:
-                messages.success(request, f'Tous les {count} produits sélectionnés sont supprimés !')
+                messages.success(request, f'Tous les produits sélectionnés sont supprimés !')
             else:
                 messages.success(request, f'{count} produits supprimés ! Il reste {restants} produit(s).')
             
@@ -1161,10 +1192,15 @@ def delete_selected_products(request):
             print(f"📌 restants: {restants}")
             print("=" * 80)
             
+            # 🔥 Rediriger vers product_list si demandé
+            if redirect_to_list:
+                return redirect('upload')
+            else:
+                return redirect('upload')
+            
         except Exception as e:
             messages.error(request, f"Erreur lors de la suppression: {str(e)}")
-        
-        return redirect('upload')
+            return redirect('upload')
     return redirect('upload')
 # catalogue_app/views.py - CORRIGER delete_all_products
 
@@ -1224,37 +1260,101 @@ def delete_all_products(request):
     return redirect('upload')
 
 def product_list(request):
-    """Liste des produits du dernier catalogue sauvegardé"""
+    """Liste des produits du dernier catalogue sauvegardé avec filtres"""
     supprimer_catalogues_vides()
-    # Récupérer le dernier catalogue QUI A DES PRODUITS SAUVEGARDÉS
-    dernier_catalogue = None
-    produits = []
     
-    # Chercher le dernier catalogue qui a au moins un produit sauvegardé
+    # Récupérer les paramètres de filtre
+    enseigne_id = request.GET.get('enseigne')
+    date_debut = request.GET.get('date_debut')
+    date_fin = request.GET.get('date_fin')
+    
+    # Récupérer tous les catalogues avec produits sauvegardés
+    catalogues_avec_produits = []
     for catalogue in Catalogue.objects.order_by('-date_upload'):
         produits_sauvegardes = catalogue.produits.filter(est_sauvegarde=True)
         if produits_sauvegardes.exists():
-            dernier_catalogue = catalogue
-            produits = produits_sauvegardes
-            break
+            catalogues_avec_produits.append({
+                'catalogue': catalogue,
+                'produits': produits_sauvegardes,
+                'count': produits_sauvegardes.count()
+            })
     
-    if dernier_catalogue:
-        context = {
-            'catalogue': dernier_catalogue,
-            'produits': produits,
-            'total_produits': produits.count(),
-            'has_products': True,
-        }
+    # 🔥 APPLIQUER LES FILTRES
+    filtered_catalogues = []
+    
+    for item in catalogues_avec_produits:
+        catalogue = item['catalogue']
+        match = True
+        
+        # Filtre par enseigne
+        if enseigne_id and enseigne_id != '':
+            if str(catalogue.enseigne.id) != enseigne_id:
+                match = False
+        
+        # Filtre par date début
+        if date_debut and date_debut != '' and match:
+            from datetime import datetime
+            try:
+                filter_date = datetime.strptime(date_debut, '%Y-%m-%d').date()
+                if catalogue.date_debut != filter_date:
+                    match = False
+            except:
+                pass
+        
+        # Filtre par date fin
+        if date_fin and date_fin != '' and match:
+            from datetime import datetime
+            try:
+                filter_date = datetime.strptime(date_fin, '%Y-%m-%d').date()
+                if catalogue.date_fin != filter_date:
+                    match = False
+            except:
+                pass
+        
+        if match:
+            filtered_catalogues.append(item)
+    
+    # 🔥 Si des filtres sont appliqués, afficher TOUS les catalogues filtrés
+    if enseigne_id or date_debut or date_fin:
+        catalogues_a_afficher = filtered_catalogues
+        has_filters = True
     else:
-        context = {
-            'catalogue': None,
-            'produits': [],
-            'total_produits': 0,
-            'has_products': False,
-        }
+        # Pas de filtre : prendre seulement le dernier catalogue
+        catalogues_a_afficher = catalogues_avec_produits[:1]  # Seulement le premier
+        has_filters = False
+    
+    # 🔥 Récupérer les données pour le template
+    if catalogues_a_afficher:
+        # Pour l'affichage principal, on prend le premier catalogue
+        premier_item = catalogues_a_afficher[0]
+        dernier_catalogue = premier_item['catalogue']
+        produits = premier_item['produits']
+        
+        # 🔥 Tous les catalogues pour l'affichage des filtres
+        tous_les_catalogues = catalogues_a_afficher
+    else:
+        dernier_catalogue = None
+        produits = []
+        tous_les_catalogues = []
+    
+    # Récupérer toutes les enseignes pour le filtre
+    enseignes = Enseigne.objects.all().order_by('nom')
+    
+    context = {
+        'catalogue': dernier_catalogue,           # Catalogue principal affiché
+        'produits': produits,                     # Produits du catalogue principal
+        'tous_les_catalogues': tous_les_catalogues,  # 🔥 TOUS les catalogues filtrés
+        'total_produits': produits.count() if produits else 0,
+        'has_products': bool(produits),
+        'enseignes': enseignes,
+        'filtre_enseigne': enseigne_id,
+        'filtre_date_debut': date_debut,
+        'filtre_date_fin': date_fin,
+        'has_filters': has_filters,
+        'nombre_catalogues': len(tous_les_catalogues),
+    }
     
     return render(request, 'product_list.html', context)
-
 
 def get_product_details(request, product_id):
     """API pour récupérer les détails d'un produit (AJAX)"""
@@ -1700,6 +1800,210 @@ def export_products_excel(request):
     filename = f"produits_{dernier_catalogue.enseigne.nom}_{dernier_catalogue.date_debut.strftime('%Y%m%d')}.xlsx"
     
     # 🔥 Créer la réponse HTTP avec le fichier Excel
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    wb.save(response)
+    return response
+
+# catalogue_app/views.py - Ajouter cette fonction après export_products_excel
+# catalogue_app/views.py - Version améliorée de export_catalogue_excel
+
+def export_catalogue_excel(request, catalogue_id):
+    """Exporter les produits d'un catalogue spécifique en fichier Excel sans répétition des infos du catalogue"""
+    
+    # 🔥 Récupérer le catalogue
+    catalogue = get_object_or_404(Catalogue, id=catalogue_id)
+    produits = catalogue.produits.filter(est_sauvegarde=True)
+    
+    if not produits.exists():
+        messages.warning(request, "Aucun produit sauvegardé dans ce catalogue à exporter.")
+        return redirect('product_list')
+    
+    # Créer le fichier Excel
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f"Produits - {catalogue.enseigne.nom}"
+    
+    # 🔥 LIGNE 1 : TITRE AVEC INFOS DU CATALOGUE (fusionnée)
+    titre = f"Catalogue: {catalogue.enseigne.nom} - Du {catalogue.date_debut.strftime('%d/%m/%Y')} au {catalogue.date_fin.strftime('%d/%m/%Y')}"
+    if catalogue.note:
+        titre += f" - {catalogue.note}"
+    
+    ws.merge_cells('A1:N1')
+    cell_titre = ws.cell(row=1, column=1, value=titre)
+    cell_titre.font = Font(bold=True, size=14, color="FFFFFF")
+    cell_titre.fill = openpyxl.styles.PatternFill(start_color="0073E6", end_color="0073E6", fill_type="solid")
+    cell_titre.alignment = Alignment(horizontal="center", vertical="center")
+    
+    # 🔥 LIGNE 2 : SOUS-TITRE AVEC LE NOMBRE DE PRODUITS
+    ws.merge_cells('A2:N2')
+    cell_sous_titre = ws.cell(row=2, column=1, value=f"Nombre de produits: {produits.count()}")
+    cell_sous_titre.font = Font(bold=True, size=11)
+    cell_sous_titre.alignment = Alignment(horizontal="center", vertical="center")
+    cell_sous_titre.fill = openpyxl.styles.PatternFill(start_color="E8F0FE", end_color="E8F0FE", fill_type="solid")
+    
+    # 🔥 LIGNE 3 : ESPACE
+    ws.row_dimensions[3].height = 5
+    
+    # 🔥 LIGNE 4 : EN-TÊTES DES COLONNES (SANS Image, Enseigne, Date début, Date fin)
+    headers = [
+        "#", "Nom (FR)", "Nom (AR)", "Marque", 
+        "Prix (DT)", "Prix avant (DT)", "Pourcentage (%)", "Remise (DT)",
+        "Desc_1", "Desc_2", "Desc_3",
+        "Note 1", "Note 2"
+    ]
+    
+    # Style pour les en-têtes
+    header_font = Font(bold=True, color="FFFFFF", size=10)
+    header_fill = openpyxl.styles.PatternFill(start_color="0D6EFD", end_color="0D6EFD", fill_type="solid")
+    header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    border = Border(
+        left=Side(style='thin', color="000000"),
+        right=Side(style='thin', color="000000"),
+        top=Side(style='thin', color="000000"),
+        bottom=Side(style='thin', color="000000")
+    )
+    
+    # Écrire les en-têtes
+    for col_idx, header in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col_idx, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_alignment
+        cell.border = border
+    
+    # 🔥 Écrire les données (commence à la ligne 5)
+    for row_idx, produit in enumerate(produits, 5):
+        # Numéro de ligne
+        ws.cell(row=row_idx, column=1, value=row_idx - 4)
+        ws.cell(row=row_idx, column=2, value=produit.nom_fr or '')
+        ws.cell(row=row_idx, column=3, value=produit.nom_ar or '')
+        ws.cell(row=row_idx, column=4, value=produit.marque or '')
+        ws.cell(row=row_idx, column=5, value=float(produit.prix) if produit.prix else None)
+        ws.cell(row=row_idx, column=6, value=float(produit.prix_avant) if produit.prix_avant else None)
+        ws.cell(row=row_idx, column=7, value=float(produit.pourcentage) if produit.pourcentage else None)
+        ws.cell(row=row_idx, column=8, value=float(produit.remise) if produit.remise else None)
+        ws.cell(row=row_idx, column=9, value=produit.desc_1 or '')
+        ws.cell(row=row_idx, column=10, value=produit.desc_2 or '')
+        ws.cell(row=row_idx, column=11, value=produit.desc_3 or '')
+        ws.cell(row=row_idx, column=12, value=produit.note_1 or '')
+        ws.cell(row=row_idx, column=13, value=produit.note_2 or '')
+        
+        # 🔥 Appliquer le style aux cellules
+        for col in range(1, len(headers) + 1):
+            cell = ws.cell(row=row_idx, column=col)
+            cell.border = border
+            if col == 5 or col == 6 or col == 8:  # Prix, Prix avant, Remise
+                cell.number_format = '#,##0.000'
+                cell.alignment = Alignment(horizontal="right")
+            elif col == 7:  # Pourcentage
+                cell.number_format = '0'
+                cell.alignment = Alignment(horizontal="right")
+            else:
+                cell.alignment = Alignment(horizontal="left", wrap_text=True)
+    
+    # 🔥 LIGNE DE TOTAL
+    total_row = len(produits) + 5
+    ws.cell(row=total_row, column=1, value="TOTAL")
+    ws.cell(row=total_row, column=1).font = Font(bold=True, size=10)
+    ws.cell(row=total_row, column=1).fill = openpyxl.styles.PatternFill(start_color="FFF3CD", end_color="FFF3CD", fill_type="solid")
+    
+    # Fusionner les colonnes pour le label TOTAL
+    ws.merge_cells(f'A{total_row}:D{total_row}')
+    ws.cell(row=total_row, column=1).alignment = Alignment(horizontal="center", vertical="center")
+    
+    # Formules de total
+    for col in [5, 6, 8]:
+        col_letter = openpyxl.utils.get_column_letter(col)
+        ws.cell(row=total_row, column=col, value=f"=SUM({col_letter}5:{col_letter}{total_row-1})")
+        ws.cell(row=total_row, column=col).font = Font(bold=True)
+        ws.cell(row=total_row, column=col).number_format = '#,##0.000'
+        ws.cell(row=total_row, column=col).fill = openpyxl.styles.PatternFill(start_color="FFF3CD", end_color="FFF3CD", fill_type="solid")
+        ws.cell(row=total_row, column=col).border = border
+    
+    # 🔥 Ajuster la largeur des colonnes
+    column_widths = {
+        'A': 8,   # #
+        'B': 35,  # Nom FR
+        'C': 35,  # Nom AR
+        'D': 25,  # Marque
+        'E': 18,  # Prix
+        'F': 18,  # Prix avant
+        'G': 15,  # Pourcentage
+        'H': 18,  # Remise
+        'I': 40,  # Desc 1
+        'J': 40,  # Desc 2
+        'K': 40,  # Desc 3
+        'L': 30,  # Note 1
+        'M': 30,  # Note 2
+    }
+    for col_letter, width in column_widths.items():
+        ws.column_dimensions[col_letter].width = width
+    
+    # 🔥 Ajouter une 2ème feuille avec les informations détaillées du catalogue
+    ws_info = wb.create_sheet("Informations catalogue")
+    
+    # Style pour les infos
+    info_title_font = Font(bold=True, size=14, color="FFFFFF")
+    info_title_fill = openpyxl.styles.PatternFill(start_color="0073E6", end_color="0073E6", fill_type="solid")
+    info_label_font = Font(bold=True, size=11)
+    info_value_font = Font(size=11)
+    
+    # Titre de la feuille d'info
+    ws_info.merge_cells('A1:D1')
+    cell_title = ws_info.cell(row=1, column=1, value="INFORMATIONS DU CATALOGUE")
+    cell_title.font = info_title_font
+    cell_title.fill = info_title_fill
+    cell_title.alignment = Alignment(horizontal="center", vertical="center")
+    
+    # Données
+    info_data = [
+        ["Enseigne", catalogue.enseigne.nom if catalogue.enseigne else ""],
+        ["Date début", catalogue.date_debut.strftime('%d/%m/%Y') if catalogue.date_debut else ""],
+        ["Date fin", catalogue.date_fin.strftime('%d/%m/%Y') if catalogue.date_fin else ""],
+        ["Date upload", catalogue.date_upload.strftime('%d/%m/%Y %H:%M') if catalogue.date_upload else ""],
+        ["Note", catalogue.note or ""],
+        ["Nombre de produits", produits.count()],
+        ["Date d'export", timezone.now().strftime('%d/%m/%Y %H:%M')],
+    ]
+    
+    border_info = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    for row_idx, (label, value) in enumerate(info_data, 3):
+        # Cellule label
+        cell_label = ws_info.cell(row=row_idx, column=1, value=label)
+        cell_label.font = info_label_font
+        cell_label.alignment = Alignment(horizontal="left", vertical="center")
+        cell_label.border = border_info
+        cell_label.fill = openpyxl.styles.PatternFill(start_color="E8F0FE", end_color="E8F0FE", fill_type="solid")
+        
+        # Cellule valeur
+        cell_value = ws_info.cell(row=row_idx, column=2, value=value)
+        cell_value.font = info_value_font
+        cell_value.alignment = Alignment(horizontal="left", vertical="center")
+        cell_value.border = border_info
+        
+        # Fusionner les colonnes C et D pour plus d'espace
+        ws_info.merge_cells(f'C{row_idx}:D{row_idx}')
+    
+    # Ajuster les colonnes
+    ws_info.column_dimensions['A'].width = 25
+    ws_info.column_dimensions['B'].width = 40
+    ws_info.column_dimensions['C'].width = 10
+    ws_info.column_dimensions['D'].width = 10
+    
+    # 🔥 Créer le nom du fichier
+    filename = f"produits_{catalogue.enseigne.nom}_{catalogue.date_debut.strftime('%Y%m%d')}.xlsx"
+    
+    # 🔥 Créer la réponse HTTP
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )

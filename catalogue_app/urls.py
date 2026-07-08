@@ -21,4 +21,6 @@ urlpatterns = [
     path('product/edit_saved/<int:product_id>/', views.edit_product_saved, name='edit_product_saved'),
     path('product/delete/<int:product_id>/', views.delete_saved_product, name='delete_saved_product'),
     path('product/export/excel/', views.export_products_excel, name='export_products_excel'),
+    # catalogue_app/urls.py - Ajouter cette ligne
+    path('export/catalogue/<int:catalogue_id>/', views.export_catalogue_excel, name='export_catalogue_excel'),
 ]

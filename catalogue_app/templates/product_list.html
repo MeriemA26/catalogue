@@ -5,11 +5,15 @@
 <!-- En-tête -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h5 class="fw-bold mb-0">
-        Dernier catalogue sauvegardé
+        {% if has_filters %}
+            Résultats de la recherche
+        {% else %}
+            Dernier catalogue sauvegardé
+        {% endif %}
     </h5>
 </div>
 
-<!-- Boutons d'action -->
+<!-- Boutons d'action globaux -->
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
     <div class="d-flex gap-2">
         <a href="{% url 'upload' %}" class="btn btn-new-catalogue btn-sm" style="text-decoration: none;">
@@ -19,142 +23,233 @@
             <i class="fas fa-sync me-1"></i>
         </a>
     </div>
-    <div>
-        <a href="{% url 'export_products_excel' %}" class="btn btn-export btn-sm" style="text-decoration: none;">
-            <i class="fas fa-file-excel me-1"></i>Exporter Excel
-        </a>
+</div>
+
+<!-- 🔥 FILTRES -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label for="enseigne" class="form-label fw-semibold mb-1">
+                    <i class="fas fa-store me-1"></i>Enseigne
+                </label>
+                <select name="enseigne" id="enseigne" class="form-select form-select-sm">
+                    <option value="">Toutes les enseignes</option>
+                    {% for enseigne in enseignes %}
+                        <option value="{{ enseigne.id }}" {% if filtre_enseigne|add:"0" == enseigne.id %}selected{% endif %}>
+                            {{ enseigne.nom }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="date_debut" class="form-label fw-semibold mb-1">
+                    <i class="far fa-calendar-alt me-1"></i>Date début
+                </label>
+                <input type="date" name="date_debut" id="date_debut" class="form-control form-control-sm" 
+                       value="{{ filtre_date_debut|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label for="date_fin" class="form-label fw-semibold mb-1">
+                    <i class="far fa-calendar-alt me-1"></i>Date fin
+                </label>
+                <input type="date" name="date_fin" id="date_fin" class="form-control form-control-sm" 
+                       value="{{ filtre_date_fin|default:'' }}">
+            </div>
+            <div class="col-md-3">
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="fas fa-filter me-1"></i>Filtrer
+                    </button>
+                    <a href="{% url 'product_list' %}" class="btn btn-outline-secondary btn-sm w-100">
+                        <i class="fas fa-times me-1"></i>Réinitialiser
+                    </a>
+                </div>
+            </div>
+        </form>
+        
+        <!-- Affichage des filtres actifs -->
+        {% if has_filters %}
+            <div class="mt-3 pt-2 border-top">
+                <small class="text-muted">
+                    <i class="fas fa-filter me-1"></i>Filtres actifs :
+                    {% if filtre_enseigne %}
+                        {% for enseigne in enseignes %}
+                            {% if filtre_enseigne|add:"0" == enseigne.id %}
+                                <span class="badge bg-primary">{{ enseigne.nom }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                    {% if filtre_date_debut %}
+                        <span class="badge bg-primary">Début : {{ filtre_date_debut }}</span>
+                    {% endif %}
+                    {% if filtre_date_fin %}
+                        <span class="badge bg-primary">Fin : {{ filtre_date_fin }}</span>
+                    {% endif %}
+                    <span class="badge bg-success ms-2">
+                        <i class="fas fa-box me-1"></i>{{ nombre_catalogues }} catalogue{{ nombre_catalogues|pluralize }}
+                    </span>
+                </small>
+            </div>
+        {% endif %}
     </div>
 </div>
 
-{% if catalogue and has_products %}
-    <!-- Carte catalogue -->
-    <div class="card border-0 shadow-sm mb-4">
-        <div class="card-header bg-white border-0 py-3">
-            <div class="d-flex flex-wrap justify-content-between align-items-center">
-                <div>
-                    <h5 class="fw-bold mb-0">
-                        <i class="fas fa-store text-secondary me-2"></i>
-                        {{ catalogue.enseigne.nom }}
-                    </h5>
-                    <small class="text-muted">
-                        <i class="far fa-calendar-alt me-1"></i>
-                        {{ catalogue.date_debut|date:"d/m/Y" }} → {{ catalogue.date_fin|date:"d/m/Y" }}
-                        {% if catalogue.note %}
-                            <span class="badge bg-light ms-2" style="color: #0e4c81; border: 1px solid #e8e8f0;">
-                                <i class="fas fa-tag me-1"></i>{{ catalogue.note }}
-                            </span>
-                        {% endif %}
-                    </small>
-                </div>
-                <div>
-                    <span class="badge bg-primary rounded-pill px-3 py-2">
-                        <i class="fas fa-box me-1"></i> {{ produits.count }} produit{{ produits.count|pluralize }}
-                    </span>
+{% if tous_les_catalogues %}
+    <!-- 🔥 AFFICHER TOUS LES CATALOGUES FILTRÉS -->
+    {% for item in tous_les_catalogues %}
+        {% with catalogue=item.catalogue produits=item.produits %}
+        <!-- Carte catalogue -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white border-0 py-3">
+                <div class="d-flex flex-wrap justify-content-between align-items-center">
+                    <div>
+                        <h5 class="fw-bold mb-0">
+                            <i class="fas fa-store text-secondary me-2"></i>
+                            {{ catalogue.enseigne.nom }}
+                        </h5>
+                        <small class="text-muted">
+                            <i class="far fa-calendar-alt me-1"></i>
+                            {{ catalogue.date_debut|date:"d/m/Y" }} → {{ catalogue.date_fin|date:"d/m/Y" }}
+                            {% if catalogue.note %}
+                                <span class="badge bg-light ms-2" style="color: #0e4c81; border: 1px solid #e8e8f0;">
+                                    <i class="fas fa-tag me-1"></i>{{ catalogue.note }}
+                                </span>
+                            {% endif %}
+                        </small>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center">
+                        <span class="badge bg-primary rounded-pill px-3 py-2">
+                            <i class="fas fa-box me-1"></i> {{ produits.count }} produit{{ produits.count|pluralize }}
+                        </span>
+                        <!-- 🔥 Bouton EXPORTER PAR CATALOGUE -->
+                        <a href="{% url 'export_catalogue_excel' catalogue.id %}" class="btn btn-export btn-sm" style="text-decoration: none;">
+                            <i class="fas fa-file-excel me-1"></i>Exporter Excel
+                        </a>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Tableau -->
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0" id="productTable">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="ps-3" style="width: 40px;">#</th>
-                            <th style="width: 60px;">Image</th>
-                            <th>Nom (FR)</th>
-                            <th>Nom (AR)</th>
-                            <th>Marque</th>
-                            <th class="text-end">Prix</th>
-                            <th class="text-end">Prix Avant</th>
-                            <th class="text-center">%</th>
-                            <th>Desc 1</th>
-                            <th>Desc 2</th>
-                            <th>Desc 3</th>
-                            <th>Note 1</th>
-                            <th>Note 2</th>
-                            <th class="text-center" style="width: 100px;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for produit in produits %}
-                        <tr>
-                            <td class="ps-3 fw-semibold text-muted">{{ forloop.counter }}</td>
-                            <td>
-                                {% if produit.image_produit %}
-                                    <img src="{{ produit.image_produit.url }}" alt="{{ produit.nom }}" 
-                                        class="img-thumbnail" 
-                                        style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #dee2e6;"
-                                        title="Image du produit">
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td class="fw-medium">{{ produit.nom_fr|default:'-' }}</td>
-                            <td>{{ produit.nom_ar|default:'-' }}</td>
-                            <td>{{ produit.marque|default:'-' }}</td>
-                            <td class="text-end">
-                                {% if produit.prix %}
-                                    <span class="fw-bold text-primary">{{ produit.prix|floatformat:3 }}</span>
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-end">
-                                {% if produit.prix_avant %}
-                                    <span class="text-decoration-line-through text-muted">{{ produit.prix_avant|floatformat:3 }}</span>
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-center">
-                                {% if produit.pourcentage %}
-                                    <span class="badge bg-success rounded-pill">{{ produit.pourcentage|floatformat:0 }}%</span>
-                                {% else %}
-                                    <span class="text-muted">-</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ produit.desc_1|default:'-'|truncatechars:35 }}</td>
-                            <td>{{ produit.desc_2|default:'-'|truncatechars:25 }}</td>
-                            <td>{{ produit.desc_3|default:'-'|truncatechars:25 }}</td>
-                            <td>{{ produit.note_1|default:'-'|truncatechars:25 }}</td>
-                            <td>{{ produit.note_2|default:'-'|truncatechars:25 }}</td>
-                            <td>
-                                <div class="d-flex gap-1 justify-content-center">
-                                    <a href="{% url 'edit_product_saved' produit.id %}" 
-                                    class="btn btn-edit btn-sm" 
-                                    title="Éditer">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                    <button type="button" 
-                                            class="btn btn-delete btn-sm delete-product-btn" 
-                                            data-product-id="{{ produit.id }}" 
-                                            data-product-name="{{ produit.nom|default:produit.nom_fr|default:'ce produit' }}"
-                                            title="Supprimer">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <!-- Tableau -->
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3" style="width: 40px;">#</th>
+                                <th style="width: 60px;">Image</th>
+                                <th>Nom (FR)</th>
+                                <th>Nom (AR)</th>
+                                <th>Marque</th>
+                                <th class="text-end">Prix</th>
+                                <th class="text-end">Prix Avant</th>
+                                <th class="text-center">%</th>
+                                <th>Desc 1</th>
+                                <th>Desc 2</th>
+                                <th>Desc 3</th>
+                                <th>Note 1</th>
+                                <th>Note 2</th>
+                                <th class="text-center" style="width: 100px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for produit in produits %}
+                            <tr>
+                                <td class="ps-3 fw-semibold text-muted">{{ forloop.counter }}</td>
+                                <td>
+                                    {% if produit.image_produit %}
+                                        <img src="{{ produit.image_produit.url }}" alt="{{ produit.nom }}" 
+                                            class="img-thumbnail" 
+                                            style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #dee2e6;"
+                                            title="Image du produit">
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="fw-medium">{{ produit.nom_fr|default:'-' }}</td>
+                                <td>{{ produit.nom_ar|default:'-' }}</td>
+                                <td>{{ produit.marque|default:'-' }}</td>
+                                <td class="text-end">
+                                    {% if produit.prix %}
+                                        <span class="fw-bold text-primary">{{ produit.prix|floatformat:3 }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end">
+                                    {% if produit.prix_avant %}
+                                        <span class="text-decoration-line-through text-muted">{{ produit.prix_avant|floatformat:3 }}</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    {% if produit.pourcentage %}
+                                        <span class="badge bg-success rounded-pill">{{ produit.pourcentage|floatformat:0 }}%</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ produit.desc_1|default:'-'|truncatechars:35 }}</td>
+                                <td>{{ produit.desc_2|default:'-'|truncatechars:25 }}</td>
+                                <td>{{ produit.desc_3|default:'-'|truncatechars:25 }}</td>
+                                <td>{{ produit.note_1|default:'-'|truncatechars:25 }}</td>
+                                <td>{{ produit.note_2|default:'-'|truncatechars:25 }}</td>
+                                <td>
+                                    <div class="d-flex gap-1 justify-content-center">
+                                        <a href="{% url 'edit_product_saved' produit.id %}" 
+                                        class="btn btn-edit btn-sm" 
+                                        title="Éditer">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button type="button" 
+                                                class="btn btn-delete btn-sm delete-product-btn" 
+                                                data-product-id="{{ produit.id }}" 
+                                                data-product-name="{{ produit.nom|default:produit.nom_fr|default:'ce produit' }}"
+                                                title="Supprimer">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
+        {% endwith %}
+    {% endfor %}
+
 {% else %}
     <!-- État vide -->
     <div class="card border-0 shadow-sm">
         <div class="card-body text-center py-5">
             <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-            <h5 class="fw-bold">Aucun catalogue sauvegardé</h5>
-            <p class="text-muted mb-3">Uploadez un catalogue et sauvegardez les produits pour les voir ici.</p>
+            <h5 class="fw-bold">
+                {% if has_filters %}
+                    Aucun catalogue correspondant aux filtres
+                {% else %}
+                    Aucun catalogue sauvegardé
+                {% endif %}
+            </h5>
+            <p class="text-muted mb-3">
+                {% if has_filters %}
+                    Aucun catalogue trouvé avec les filtres sélectionnés.
+                {% else %}
+                    Uploadez un catalogue et sauvegardez les produits pour les voir ici.
+                {% endif %}
+            </p>
+            {% if has_filters %}
+                <a href="{% url 'product_list' %}" class="btn btn-outline-primary">
+                    <i class="fas fa-times me-1"></i>Réinitialiser les filtres
+                </a>
+            {% endif %}
         </div>
     </div>
 {% endif %}
 
-<!-- ⭐ MODALE DÉPLACÉE ICI - EN DEHORS DE LA CARTE -->
-<!-- Modal de confirmation de suppression -->
+<!-- ⭐ MODALE DE CONFIRMATION DE SUPPRESSION -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content modal-confirm">
