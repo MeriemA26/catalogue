@@ -10,29 +10,21 @@
     <span class="text-muted small">{% now "d/m/Y" %}</span>
 </div>
 
-<!-- 4 indicateurs clés -->
-<div class="row g-3 mb-4">
-    <div class="col-md-3 col-6">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body text-center py-3">
-                <h6 class="text-muted small text-uppercase mb-1">Catalogues</h6>
-                <h4 class="fw-bold mb-0">{{ total_catalogues|default:0 }}</h4>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 col-6">
-        <div class="card border-0 shadow-sm">
-            <div class="card-body text-center py-3">
-                <h6 class="text-muted small text-uppercase mb-1">Produits</h6>
-                <h4 class="fw-bold mb-0">{{ total_produits_sauvegardes|default:0 }}</h4>
-            </div>
-        </div>
-    </div>
+<!-- 3 indicateurs clés -->
+<div class="row g-3 mb-4 justify-content-center">
     <div class="col-md-3 col-6">
         <div class="card border-0 shadow-sm">
             <div class="card-body text-center py-3">
                 <h6 class="text-muted small text-uppercase mb-1">Enseignes</h6>
                 <h4 class="fw-bold mb-0">{{ total_enseignes|default:0 }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-3">
+                <h6 class="text-muted small text-uppercase mb-1">Catalogues</h6>
+                <h4 class="fw-bold mb-0">{{ total_catalogues|default:0 }}</h4>
             </div>
         </div>
     </div>

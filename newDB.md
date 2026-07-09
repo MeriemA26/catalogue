@@ -1,3 +1,54 @@
+**installation de Django et un env** 
+
+
+**1. Va dans le dossier du projet**
+
+cd C:\\chemin\\vers\\catalogue\_project
+
+
+
+**2. Crée un nouvel environnement virtuel**
+
+python -m venv venv
+
+(Tu peux aussi l'appeler env, mais venv est le nom le plus courant.)
+
+
+
+**3. Active-le**
+
+Sous PowerShell :
+
+.\\venv\\Scripts\\Activate
+
+
+
+**4. Mets pip à jour (optionnel mais recommandé)**
+
+python -m pip install --upgrade pip
+
+
+
+**5. Installe la même version de Django**
+
+pip install Django==5.2.8
+
+
+
+**6. Vérifie**
+
+python -m django --version
+
+=>5.2.8
+
+
+
+**7.installer les biblios necessaire** 
+
+
+
+\------------------------------------------------------------------------------------
+
 Dans la table extraction, le champ **id\_sqlite** sert à faire le lien entre un produit dans **SQLite** et son équivalent dans **SQL Server**.
 
 
@@ -8,7 +59,7 @@ Dans la table extraction, le champ **id\_sqlite** sert à faire le lien entre un
 
 **to start from scratch (id=1)**
 
-**1/**cd C:\\Users\\merya\\Desktop\\3AI\\sem1\\pyhton\\catalogue\_project
+\*\*1/\*\*cd C:\\Users\\merya\\Desktop\\3AI\\sem1\\pyhton\\catalogue\_project
 
 del db.sqlite3
 
@@ -50,7 +101,7 @@ if conn:
 
 &#x20;   cursor = conn.cursor()
 
-&#x20;   
+&#x20;
 
 &#x20;   # Supprimer les données
 
@@ -60,7 +111,7 @@ if conn:
 
 &#x20;   print("✅ Données supprimées de SQL Server")
 
-&#x20;   
+&#x20;
 
 &#x20;   # Réinitialiser les séquences IDENTITY
 
@@ -70,7 +121,7 @@ if conn:
 
 &#x20;   print("✅ Séquences IDENTITY réinitialisées")
 
-&#x20;   
+&#x20;
 
 &#x20;   conn.commit()
 
