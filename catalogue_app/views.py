@@ -1570,6 +1570,22 @@ def edit_product_saved(request, product_id):
     """Éditer un produit sauvegardé (redirige vers product_list après sauvegarde)"""
     produit = get_object_or_404(Produit, id=product_id)
     
+    # 🔥 Récupérer les paramètres de filtre depuis l'URL
+    filtre_enseigne = request.GET.get('enseigne', '')
+    filtre_date_debut = request.GET.get('date_debut', '')
+    filtre_date_fin = request.GET.get('date_fin', '')
+    
+    # 🔥 Construire l'URL de retour avec les filtres
+    return_params = []
+    if filtre_enseigne:
+        return_params.append(f'enseigne={filtre_enseigne}')
+    if filtre_date_debut:
+        return_params.append(f'date_debut={filtre_date_debut}')
+    if filtre_date_fin:
+        return_params.append(f'date_fin={filtre_date_fin}')
+    
+    return_url = '&'.join(return_params) if return_params else ''
+    
     if request.method == 'POST':
         form = ProduitForm(request.POST, instance=produit)
         if form.is_valid():
@@ -1626,7 +1642,12 @@ def edit_product_saved(request, product_id):
                     print(f"⚠️ Erreur lors de la synchronisation SQL: {e}")
                 
                 messages.success(request, 'Produit mis à jour avec succès !')
-                return redirect('product_list')  # 🔥 SEULE DIFFÉRENCE : redirection vers product_list
+                
+                # 🔥 REDIRECTION AVEC FILTRES
+                if return_url:
+                    return redirect(f'/products/?{return_url}')
+                else:
+                    return redirect('product_list')
                 
             except Exception as e:
                 messages.error(request, f"Erreur lors de la mise à jour: {str(e)}")
@@ -1638,6 +1659,7 @@ def edit_product_saved(request, product_id):
     context = {
         'form': form,
         'produit': produit,
+        'return_url': return_url,  # 🔥 Passer l'URL de retour au template
     }
     return render(request, 'edit_product_saved.html', context)
 

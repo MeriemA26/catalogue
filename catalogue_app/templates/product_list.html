@@ -197,7 +197,7 @@
                                 <td>{{ produit.note_2|default:'-'|truncatechars:25 }}</td>
                                 <td>
                                     <div class="d-flex gap-1 justify-content-center">
-                                        <a href="{% url 'edit_product_saved' produit.id %}" 
+                                        <a href="{% url 'edit_product_saved' produit.id %}?{{ request.GET.urlencode }}"
                                         class="btn btn-edit btn-sm" 
                                         title="Éditer">
                                             <i class="fas fa-edit"></i>

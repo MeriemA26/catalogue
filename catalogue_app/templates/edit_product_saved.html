@@ -146,7 +146,7 @@
                 <button type="submit" class="btn btn-primary" style="border-radius: 9999px;">
                     <i class="fas fa-save me-1"></i>Enregistrer
                 </button>
-                <a href="{% url 'product_list' %}" class="btn btn-outline-secondary" style="border-radius: 9999px; text-decoration: none;">
+                <a href="{% url 'product_list' %}{% if return_url %}?{{ return_url }}{% endif %}" class="btn btn-outline-secondary" style="border-radius: 9999px; text-decoration: none;">
                     <i class="fas fa-arrow-left me-1"></i>Retour
                 </a>
             </div>
