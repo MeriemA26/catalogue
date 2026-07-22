@@ -167,7 +167,7 @@
                                     {% endif %}
                                 </td>
                                 <td class="fw-medium">{{ produit.nom_fr|default:'-' }}</td>
-                                <td>{{ produit.nom_ar|default:'-' }}</td>
+                                <td dir="auto">{{ produit.nom_ar|default:'-' }}</td>
                                 <td>{{ produit.marque|default:'-' }}</td>
                                 <td class="text-end">
                                     {% if produit.prix %}
@@ -190,11 +190,11 @@
                                         <span class="text-muted">-</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ produit.desc_1|default:'-'|truncatechars:35 }}</td>
-                                <td>{{ produit.desc_2|default:'-'|truncatechars:25 }}</td>
-                                <td>{{ produit.desc_3|default:'-'|truncatechars:25 }}</td>
-                                <td>{{ produit.note_1|default:'-'|truncatechars:25 }}</td>
-                                <td>{{ produit.note_2|default:'-'|truncatechars:25 }}</td>
+                                <td dir="auto">{{ produit.desc_1|default:'-'}}</td>
+                                <td dir="auto">{{ produit.desc_2|default:'-' }}</td>
+                                <td dir="auto">{{ produit.desc_3|default:'-' }}</td>
+                                <td>{{ produit.note_1|default:'-'}}</td>
+                                <td>{{ produit.note_2|default:'-'}}</td>
                                 <td>
                                     <div class="d-flex gap-1 justify-content-center">
                                         <a href="{% url 'edit_product_saved' produit.id %}?{{ request.GET.urlencode }}"

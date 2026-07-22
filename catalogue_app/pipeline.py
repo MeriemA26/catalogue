@@ -7,7 +7,12 @@ from ultralytics import YOLO
 import easyocr
 import torch
 import base64
+import numpy as np
+import pytesseract
+from PIL import Image
 
+# 🔥 CHEMIN TESSERACT (à adapter selon votre installation)
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # Correction du chemin des modèles
 ML_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,8 +26,15 @@ _field_model = None
 _reader_latin = None
 _reader_ar = None
 
+# Configuration Tesseract
+TESSERACT_AR_CONFIG = '-l ara --psm 6 --oem 3'
+TESSERACT_FR_CONFIG = '-l fra --psm 6 --oem 3'
 
-# Fonctions de détection de langue (définies en dehors de toute classe)
+
+# ============================================================
+# FONCTIONS DE DÉTECTION DE LANGUE
+# ============================================================
+
 def _is_arabic(text):
     """Vérifie si le texte contient des caractères arabes"""
     if not text:
@@ -48,6 +60,17 @@ def _detect_language(text):
         return 'french'
     return 'mixed'
 
+def _has_arabic_chars(text):
+    """Vérifie si le texte contient des caractères arabes"""
+    if not text:
+        return False
+    return bool(re.search(r'[\u0600-\u06FF]', text))
+
+
+# ============================================================
+# CHARGEMENT DES MODÈLES
+# ============================================================
+
 def get_product_model():
     global _product_model
     if _product_model is None:
@@ -70,15 +93,18 @@ def get_ocr_readers():
     global _reader_latin, _reader_ar
     if _reader_latin is None:
         use_gpu = torch.cuda.is_available()
-        # 🔥 Reader pour les langues latines (français, anglais)
         _reader_latin = easyocr.Reader(['fr', 'en'], gpu=use_gpu)
         print("✅ Reader Latin (FR+EN) créé")
     if _reader_ar is None:
         use_gpu = torch.cuda.is_available()
-        # 🔥 Reader pour l'arabe (avec anglais pour les chiffres)
         _reader_ar = easyocr.Reader(['ar', 'en'], gpu=use_gpu)
         print("✅ Reader AR+EN créé")
     return _reader_latin, _reader_ar
+
+
+# ============================================================
+# MAPPING DES CHAMPS
+# ============================================================
 
 FIELD_CLASS_MAP = {
     'product_name': 'nom_fr',
@@ -87,10 +113,15 @@ FIELD_CLASS_MAP = {
     'price': 'prix',
     'price_before': 'prix_avant',
     'pct': 'pourcentage',
-    'description': 'desc_1',      # ← Clé: description, Valeur: desc_1
-    'description2': 'desc_2',     # ← Clé: description2, Valeur: desc_2
-    'description3': 'desc_3'      # ← Clé: description3, Valeur: desc_3
+    'description': 'desc_1',
+    'description2': 'desc_2',
+    'description3': 'desc_3'
 }
+
+
+# ============================================================
+# FONCTIONS D'EXTRACTION (PRIX, POURCENTAGE, IMAGE)
+# ============================================================
 
 def image_to_base64(image):
     _, buffer = cv2.imencode('.jpg', image)
@@ -161,36 +192,10 @@ def extract_percentage(roi, debug=False):
                     pass
     return ""
 
-def extract_text_mixed(roi, reader_latin, reader_ar):
-    """
-    Extrait le texte d'une ROI en combinant les résultats du reader latin et arabe.
-    Utile pour les textes mixtes (arabe + français).
-    """
-    roi_big = cv2.resize(roi, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-    gray = cv2.cvtColor(roi_big, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    
-    # 🔥 Essayer avec le reader latin d'abord
-    results_latin = reader_latin.readtext(thresh)
-    texts_latin = [t for bbox, t, conf in results_latin if conf > 0.2]
-    
-    # 🔥 Essayer avec le reader arabe
-    results_ar = reader_ar.readtext(thresh)
-    texts_ar = [t for bbox, t, conf in results_ar if conf > 0.2]
-    
-    # 🔥 Combiner les résultats (éviter les doublons)
-    all_texts = texts_latin + texts_ar
-    # Supprimer les doublons en gardant l'ordre
-    seen = set()
-    unique_texts = []
-    for text in all_texts:
-        text_clean = text.strip()
-        if text_clean and text_clean not in seen:
-            seen.add(text_clean)
-            unique_texts.append(text_clean)
-    
-    return " ".join(unique_texts)
 
+# ============================================================
+# FONCTIONS D'EXTRACTION DE TEXTE (EASYOCR)
+# ============================================================
 
 def extract_text(roi, reader, prefer_latin=True):
     """
@@ -206,13 +211,187 @@ def extract_text(roi, reader, prefer_latin=True):
         return " ".join(texts)
     return ""
 
-def format_price(value):
-    if value is None or value == '':
-        return None
+def extract_text_mixed(roi, reader_latin, reader_ar):
+    """
+    Extrait le texte d'une ROI en combinant les résultats du reader latin et arabe.
+    Utile pour les textes mixtes (arabe + français).
+    """
+    roi_big = cv2.resize(roi, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+    gray = cv2.cvtColor(roi_big, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    results_latin = reader_latin.readtext(thresh)
+    texts_latin = [t for bbox, t, conf in results_latin if conf > 0.2]
+    
+    results_ar = reader_ar.readtext(thresh)
+    texts_ar = [t for bbox, t, conf in results_ar if conf > 0.2]
+    
+    all_texts = texts_latin + texts_ar
+    seen = set()
+    unique_texts = []
+    for text in all_texts:
+        text_clean = text.strip()
+        if text_clean and text_clean not in seen:
+            seen.add(text_clean)
+            unique_texts.append(text_clean)
+    
+    return " ".join(unique_texts)
+
+
+# ============================================================
+# FONCTIONS D'EXTRACTION DE TEXTE (TESSERACT)
+# ============================================================
+
+def preprocess_for_tesseract(roi):
+    """
+    Prétraitement d'image pour Tesseract.
+    """
+    # Agrandir
+    roi_big = cv2.resize(roi, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC)
+    gray = cv2.cvtColor(roi_big, cv2.COLOR_BGR2GRAY)
+    
+    # CLAHE pour améliorer le contraste
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+    enhanced = clahe.apply(gray)
+    
+    # Seuillage Otsu
+    _, thresh = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # Nettoyer
+    kernel = np.ones((2,2), np.uint8)
+    cleaned = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+    cleaned = cv2.medianBlur(cleaned, 3)
+    
+    return cleaned
+
+def extract_text_tesseract(roi, lang='ara'):
+    """
+    Extrait le texte avec Tesseract.
+    lang: 'ara' pour arabe, 'fra' pour français
+    """
     try:
-        return float(value)
-    except:
-        return None
+        processed = preprocess_for_tesseract(roi)
+        pil_image = Image.fromarray(processed)
+        
+        if lang == 'ara':
+            config = TESSERACT_AR_CONFIG
+        else:
+            config = TESSERACT_FR_CONFIG
+        
+        text = pytesseract.image_to_string(pil_image, config=config)
+        text = text.strip()
+        
+        if text:
+            # Nettoyer
+            text = re.sub(r'[^\w\s\u0600-\u06FF\.\,\-\(\)\:\d]+', ' ', text)
+            text = re.sub(r'\s+', ' ', text).strip()
+        
+        return text
+    except Exception as e:
+        print(f"⚠️ Erreur Tesseract: {e}")
+        return ""
+
+
+# ============================================================
+# DÉTECTION DE LANGUE POUR LES DESCRIPTIONS
+# ============================================================
+
+def detect_description_language(roi):
+    """
+    Détecte la langue d'une ROI de description.
+    Utilise EasyOCR pour une détection rapide.
+    """
+    reader_latin, reader_ar = get_ocr_readers()
+    
+    roi_big = cv2.resize(roi, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+    gray = cv2.cvtColor(roi_big, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # Tester avec l'arabe
+    results_ar = reader_ar.readtext(thresh, paragraph=False)
+    arabic_chars_count = 0
+    for bbox, text, conf in results_ar:
+        if conf > 0.2:
+            arabic_chars_count += len(re.findall(r'[\u0600-\u06FF]', text))
+    
+    # Tester avec le latin
+    results_latin = reader_latin.readtext(thresh, paragraph=False)
+    latin_chars_count = 0
+    for bbox, text, conf in results_latin:
+        if conf > 0.2:
+            latin_chars_count += len(re.findall(r'[a-zA-Z]', text))
+    
+    # Décider la langue
+    if arabic_chars_count > latin_chars_count and arabic_chars_count > 2:
+        return 'arabic'
+    elif latin_chars_count > 2:
+        return 'french'
+    else:
+        return 'unknown'
+
+
+# ============================================================
+# EXTRACTION DE TEXTE POUR LES DESCRIPTIONS (AVEC DÉTECTION)
+# ============================================================
+
+def extract_description_text(roi, reader_latin, reader_ar):
+    """
+    Extrait le texte d'une description en détectant automatiquement la langue.
+    - Si arabe détecté → Tesseract arabe
+    - Si français détecté → EasyOCR latin
+    """
+    # 1. Détecter la langue de la ROI
+    lang = detect_description_language(roi)
+    
+    print(f"   🌐 Langue détectée pour description: {lang}")
+    
+    # 2. Extraire selon la langue détectée
+    if lang == 'arabic':
+        # Utiliser Tesseract pour l'arabe
+        text = extract_text_tesseract(roi, lang='ara')
+        if text:
+            print(f"   ✅ Tesseract (arabe): {text[:50]}...")
+            return text
+        else:
+            # Fallback: EasyOCR arabe
+            text = extract_text(roi, reader_ar)
+            if text:
+                print(f"   ✅ EasyOCR (arabe fallback): {text[:50]}...")
+                return text
+            return ""
+    
+    elif lang == 'french':
+        # Utiliser EasyOCR pour le français
+        text = extract_text(roi, reader_latin)
+        if text:
+            print(f"   ✅ EasyOCR (français): {text[:50]}...")
+            return text
+        else:
+            # Fallback: Tesseract français
+            text = extract_text_tesseract(roi, lang='fra')
+            if text:
+                print(f"   ✅ Tesseract (français fallback): {text[:50]}...")
+                return text
+            return ""
+    
+    else:
+        # Langue inconnue → essayer les deux
+        text = extract_text(roi, reader_latin)
+        if text:
+            return text
+        text = extract_text(roi, reader_ar)
+        if text:
+            return text
+        # Dernier recours: Tesseract
+        text = extract_text_tesseract(roi, lang='ara')
+        if text:
+            return text
+        return ""
+
+
+# ============================================================
+# FONCTION PRINCIPALE DE TRAITEMENT
+# ============================================================
 
 def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debug=False):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -282,38 +461,35 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
                 print(f"   ✅ Nom FR détecté: {extracted_value[:50]}...")
                 
             elif class_name == 'brand':
-                # Essayer d'abord en latin, puis en arabe
                 extracted_value = extract_text(roi, reader_latin)
                 if not extracted_value:
                     extracted_value = extract_text(roi, reader_ar)
                 data['marque'] = extracted_value
+                
             elif class_name == 'price':
                 extracted_value = extract_price(roi, debug)
                 if extracted_value:
                     data['prix'] = float(extracted_value)
                     extracted_prix = float(extracted_value)
                     print(f"   ✅ Prix détecté: {extracted_value}")
+                    
             elif class_name == 'price_before':
                 extracted_value = extract_price(roi, debug)
                 if extracted_value:
                     data['prix_avant'] = float(extracted_value)
                     extracted_prix_avant = float(extracted_value)
                     print(f"   ✅ Prix avant détecté: {extracted_value}")
+                    
             elif class_name == 'pct':
                 extracted_value = extract_percentage(roi, debug)
                 if extracted_value:
                     data['pourcentage'] = float(extracted_value)
                     extracted_pct = float(extracted_value)
                     print(f"   ✅ Pourcentage détecté: {extracted_value}%")
+                    
             elif class_name == 'description':
-                # 🔥 Utiliser le reader latin pour les descriptions (peut contenir du français)
-                extracted_value = extract_text(roi, reader_latin)
-                # 🔥 Si pas de résultat, essayer avec le reader arabe
-                if not extracted_value:
-                    extracted_value = extract_text(roi, reader_ar)
-                # 🔥 Si toujours pas, utiliser le mixte
-                if not extracted_value:
-                    extracted_value = extract_text_mixed(roi, reader_latin, reader_ar)
+                # 🔥 Utiliser la fonction avec détection de langue
+                extracted_value = extract_description_text(roi, reader_latin, reader_ar)
                 
                 # Nettoyer la description
                 if extracted_value:
@@ -321,49 +497,46 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
                     extracted_value = re.sub(r'\s+', ' ', extracted_value).strip()
                 data['desc_1'] = extracted_value
                 if extracted_value:
-                    print(f"   ✅ Desc 1 nettoyée: {extracted_value[:50]}...")
+                    print(f"   ✅ Desc 1: {extracted_value[:50]}...")
                     
             elif class_name == 'description2':
-                # 🔥 Même logique pour description2
-                extracted_value = extract_text(roi, reader_latin)
-                if not extracted_value:
-                    extracted_value = extract_text(roi, reader_ar)
-                if not extracted_value:
-                    extracted_value = extract_text_mixed(roi, reader_latin, reader_ar)
+                # 🔥 Utiliser la fonction avec détection de langue
+                extracted_value = extract_description_text(roi, reader_latin, reader_ar)
+                
+                if extracted_value:
+                    extracted_value = re.sub(r'[^\w\s\u0600-\u06FF\.\,\-\(\)\:]+', ' ', extracted_value)
+                    extracted_value = re.sub(r'\s+', ' ', extracted_value).strip()
                 data['desc_2'] = extracted_value
                 if extracted_value:
-                    print(f"   ✅ Desc 2 nettoyée: {extracted_value[:50]}...")
+                    print(f"   ✅ Desc 2: {extracted_value[:50]}...")
                     
             elif class_name == 'description3':
-                # 🔥 Même logique pour description3
-                extracted_value = extract_text(roi, reader_latin)
-                if not extracted_value:
-                    extracted_value = extract_text(roi, reader_ar)
-                if not extracted_value:
-                    extracted_value = extract_text_mixed(roi, reader_latin, reader_ar)
+                # 🔥 Utiliser la fonction avec détection de langue
+                extracted_value = extract_description_text(roi, reader_latin, reader_ar)
+                
+                if extracted_value:
+                    extracted_value = re.sub(r'[^\w\s\u0600-\u06FF\.\,\-\(\)\:]+', ' ', extracted_value)
+                    extracted_value = re.sub(r'\s+', ' ', extracted_value).strip()
                 data['desc_3'] = extracted_value
                 if extracted_value:
-                    print(f"   ✅ Desc 3 nettoyée: {extracted_value[:50]}...")
+                    print(f"   ✅ Desc 3: {extracted_value[:50]}...")
         
-        # Calcul des prix
-        # 🔥 RÈGLE D'OR : si prix ET prix_avant ont TOUS LES DEUX été lus directement par l'OCR,
-        # on les garde tels quels (ce sont les vraies valeurs imprimées). On ne les recalcule
-        # JAMAIS à partir du pourcentage, car le "-X%" affiché sur l'étiquette est souvent
-        # lui-même arrondi et ne redonne pas exactement le même prix_avant si on le recalcule.
+        # ============================================================
+        # CALCUL DES PRIX
+        # ============================================================
+        
         if extracted_prix is not None and extracted_prix > 0 and extracted_prix_avant is not None and extracted_prix_avant > 0:
             data['prix'] = extracted_prix
             data['prix_avant'] = extracted_prix_avant
             if extracted_pct is not None and 1 <= extracted_pct <= 100:
-                # Le pourcentage a aussi été lu directement -> on garde la valeur imprimée
                 data['pourcentage'] = extracted_pct
                 data['remise'] = f"{extracted_pct}%"
             elif extracted_prix < extracted_prix_avant:
-                # Pas de pourcentage lu -> on le déduit des 2 prix réels
                 pct = round((1 - extracted_prix / extracted_prix_avant) * 100)
                 if 1 <= pct <= 100:
                     data['pourcentage'] = pct
                     data['remise'] = f"{pct}%"
-        # Un seul des deux prix est connu + un pourcentage -> on déduit celui qui manque
+                    
         elif extracted_pct is not None and 1 <= extracted_pct <= 100:
             data['pourcentage'] = extracted_pct
             data['remise'] = f"{extracted_pct}%"
@@ -373,17 +546,21 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
             elif extracted_prix_avant is not None and extracted_prix_avant > 0:
                 data['prix'] = round(extracted_prix_avant * (1 - extracted_pct/100), 3)
                 data['prix_avant'] = extracted_prix_avant
+                
         elif extracted_prix is not None and extracted_prix > 0:
             data['prix'] = extracted_prix
+            
         elif extracted_prix_avant is not None and extracted_prix_avant > 0:
             data['prix_avant'] = extracted_prix_avant
         
-        # Détecter la langue des descriptions
+        # ============================================================
+        # LOG DES DONNÉES EXTRAITES
+        # ============================================================
+        
         desc_1_lang = _detect_language(data['desc_1'])
         desc_2_lang = _detect_language(data['desc_2'])
         desc_3_lang = _detect_language(data['desc_3'])
         
-        # Log des données extraites
         print(f"\n📦 Produit {idx+1}:")
         print(f"  Nom FR: {data['nom_fr'] if data['nom_fr'] else '(non détecté)'}")
         print(f"  Nom AR: {data['nom_ar'] if data['nom_ar'] else '(non détecté)'}")
@@ -394,7 +571,7 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
         print(f"  Desc 1: {(data['desc_1'][:50] + '...') if data['desc_1'] else '(non détecté)'} [{desc_1_lang}]")
         print(f"  Desc 2: {(data['desc_2'][:50] + '...') if data['desc_2'] else '(non détecté)'} [{desc_2_lang}]")
         print(f"  Desc 3: {(data['desc_3'][:50] + '...') if data['desc_3'] else '(non détecté)'} [{desc_3_lang}]")
-
+        
         products.append(data)
     
     return products

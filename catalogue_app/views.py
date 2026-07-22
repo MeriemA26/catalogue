@@ -504,7 +504,7 @@ def upload_stream(request):
                 get_product_model, get_field_model, get_ocr_readers,
                 FIELD_CLASS_MAP, image_to_base64,
                 extract_price, extract_percentage, extract_text,
-                _detect_language
+                _detect_language,extract_description_text
             )
             import cv2, torch, re, base64 as b64
             from decimal import Decimal
@@ -609,17 +609,42 @@ def upload_stream(request):
                                 extracted_pct = Decimal(v)
                                 print(f"  ✅ Pourcentage extrait: {v} -> {data['pourcentage']}")
                         # ✅ CORRIGÉ :
-                        elif class_name in ('description', 'description2', 'description3'):
-                            v = extract_text(roi, reader_latin) or extract_text(roi, reader_ar)
+                        # ============================================
+                        # 🔥 TESSERACT : Descriptions uniquement
+                        # ============================================
+                        elif class_name == 'description':
+                            v = extract_description_text(roi, reader_latin, reader_ar)
+                            if v:
+                                # Nettoyer
+                                v = re.sub(r'[^\w\s\u0600-\u06FF\.\,\-\(\)\:]+', ' ', v)
+                                v = re.sub(r'\s+', ' ', v).strip()
+                            data['desc_1'] = v or ''
+                            if v:
+                                print(f"   ✅ Desc 1 (détection auto): '{v[:50]}...'")
+                            else:
+                                print(f"   ⚠️ Desc 1: rien extrait")
+                                
+                        elif class_name == 'description2':
+                            v = extract_description_text(roi, reader_latin, reader_ar)
                             if v:
                                 v = re.sub(r'[^\w\s\u0600-\u06FF\.\,\-\(\)\:]+', ' ', v)
                                 v = re.sub(r'\s+', ' ', v).strip()
-                            if class_name == 'description':
-                                data['desc_1'] = v or ''
-                            elif class_name == 'description2':
-                                data['desc_2'] = v or ''
-                            elif class_name == 'description3':
-                                data['desc_3'] = v or ''
+                            data['desc_2'] = v or ''
+                            if v:
+                                print(f"   ✅ Desc 2 (détection auto): '{v[:50]}...'")
+                            else:
+                                print(f"   ⚠️ Desc 2: rien extrait")
+                                
+                        elif class_name == 'description3':
+                            v = extract_description_text(roi, reader_latin, reader_ar)
+                            if v:
+                                v = re.sub(r'[^\w\s\u0600-\u06FF\.\,\-\(\)\:]+', ' ', v)
+                                v = re.sub(r'\s+', ' ', v).strip()
+                            data['desc_3'] = v or ''
+                            if v:
+                                print(f"   ✅ Desc 3 (détection auto): '{v[:50]}...'")
+                            else:
+                                print(f"   ⚠️ Desc 3: rien extrait")
 
                     # 🔥 LOGS DES VALEURS EXTRAITES
                     print(f"\n🔍 PRODUIT {idx+1} - VALEURS EXTRAITES BRUTES:")
@@ -808,6 +833,7 @@ def upload_stream(request):
     response['Cache-Control'] = 'no-cache'
     response['X-Accel-Buffering'] = 'no'
     return response
+
 # catalogue_app/views.py - edit_product CORRIGÉ
 
 def edit_product(request, product_id):

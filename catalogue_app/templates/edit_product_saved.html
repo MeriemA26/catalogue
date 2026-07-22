@@ -43,7 +43,7 @@
                 <div class="col-md-4">
                     <div class="mb-3">
                         <label for="{{ form.nom_ar.id_for_label }}" class="form-label fw-semibold">Nom (AR)</label>
-                        {{ form.nom_ar }}
+                        <input type="text" name="nom_ar" value="{{ form.nom_ar.value|default:'' }}" class="form-control rtl" dir="rtl" placeholder="الاسم بالعربية">
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -109,19 +109,19 @@
                 <div class="col-md-4">
                     <div class="mb-3">
                         <label for="{{ form.desc_1.id_for_label }}" class="form-label fw-semibold">Desc 1</label>
-                        {{ form.desc_1 }}
+                        <textarea name="desc_1" class="form-control" dir="auto" rows="3">{{ form.desc_1.value|default:'' }}</textarea>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="mb-3">
                         <label for="{{ form.desc_2.id_for_label }}" class="form-label fw-semibold">Desc 2</label>
-                        {{ form.desc_2 }}
+                        <textarea name="desc_2" class="form-control" dir="auto" rows="3">{{ form.desc_2.value|default:'' }}</textarea>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="mb-3">
                         <label for="{{ form.desc_3.id_for_label }}" class="form-label fw-semibold">Desc 3</label>
-                        {{ form.desc_3 }}
+                        <textarea name="desc_3" class="form-control" dir="auto" rows="3">{{ form.desc_3.value|default:'' }}</textarea>
                     </div>
                 </div>
             </div>

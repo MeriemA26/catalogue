@@ -2074,3 +2074,40 @@ a:hover {
     min-width: 320px;
     max-width: 420px;
 }
+
+/* =========================================================================
+   SUPPORT RTL POUR LES DESCRIPTIONS
+   ========================================================================= */
+
+/* Cellules de description avec direction automatique */
+.desc-cell {
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    max-width: 200px;
+    min-width: 100px;
+}
+
+/* Direction automatique gérée par l'attribut dir="auto" */
+.desc-cell[dir="auto"] {
+    text-align: start;
+}
+
+/* Version RTL forcée */
+.desc-cell.rtl {
+    direction: rtl;
+    text-align: right;
+    unicode-bidi: embed;
+}
+
+/* Version LTR forcée */
+.desc-cell.ltr {
+    direction: ltr;
+    text-align: left;
+}
+
+/* Support RTL pour les textareas dans les modales d'édition */
+textarea.rtl,
+input.rtl {
+    direction: rtl;
+    text-align: right;
+}

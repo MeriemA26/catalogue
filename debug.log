@@ -218,3 +218,11 @@ INFO 2026-06-27 17:43:57,268 views 7548 24696 Image sauvegardee: catalogues/Carr
 INFO 2026-06-27 17:44:03,033 views 7548 24696 Produits detectes avec YOLO: 2
 INFO 2026-06-27 17:44:03,038 views 7548 24696 Image produit 0 decodee avec succes
 INFO 2026-06-27 17:44:03,059 views 7548 24696 Image produit 1 decodee avec succes
+INFO 2026-07-21 11:30:14,916 fake_tensor 23664 20988 FakeTensor cache stats:
+INFO 2026-07-21 11:30:14,918 fake_tensor 23664 20988   cache_hits: 0
+INFO 2026-07-21 11:30:14,919 fake_tensor 23664 20988   cache_misses: 0
+WARNING 2026-07-21 13:26:31,104 easyocr 17864 23960 Using CPU. Note: This module is much faster with a GPU.
+WARNING 2026-07-21 13:26:32,993 easyocr 17864 23960 Using CPU. Note: This module is much faster with a GPU.
+INFO 2026-07-21 19:22:06,388 fake_tensor 30540 28136 FakeTensor cache stats:
+INFO 2026-07-21 19:22:06,390 fake_tensor 30540 28136   cache_hits: 0
+INFO 2026-07-21 19:22:06,390 fake_tensor 30540 28136   cache_misses: 0
