@@ -60,9 +60,7 @@ def index(request):
     produits_a_traiter = Produit.objects.filter(est_sauvegarde=False).count()
     
     # Catalogues actifs avec comptage des produits sauvegardés
-    catalogues_actifs = Catalogue.objects.filter(
-        date_fin__gte=datetime.now().date()
-    ).annotate(
+    catalogues_actifs = Catalogue.objects.annotate(
         nb_produits=Count('produits'),
         nb_sauvegardes=Count('produits', filter=Q(produits__est_sauvegarde=True)),
         nb_non_sauvegardes=Count('produits', filter=Q(produits__est_sauvegarde=False))
