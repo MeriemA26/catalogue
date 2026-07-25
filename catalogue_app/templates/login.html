@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion - Catalogue Délice</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #3D6AC1 0%, #2f5497 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .login-card {
+            width: 100%;
+            max-width: 380px;
+            border-radius: 16px;
+            border: none;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            background: white;
+            padding: 2.5rem;
+        }
+        .login-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin: 0 auto 16px;
+            color: white;
+        }
+        .icon-admin { background: #3D6AC1; }
+        .icon-employe { background: #6c757d; }
+        .btn-login {
+            border: none;
+            border-radius: 50px;
+            padding: 10px;
+            font-weight: 600;
+            width: 100%;
+            color: white;
+        }
+        .btn-login.admin { background-color: #3D6AC1; }
+        .btn-login.admin:hover { background-color: #2f5497; }
+        .btn-login.employe { background-color: #6c757d; }
+        .btn-login.employe:hover { background-color: #51585e; }
+        .form-control {
+            border-radius: 10px;
+            padding: 10px 14px;
+        }
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 16px;
+            font-size: 0.85rem;
+            color: #6c757d;
+            text-decoration: none;
+        }
+        .back-link:hover { color: #3D6AC1; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="text-center mb-4">
+            <div class="login-icon {% if role == 'admin' %}icon-admin{% else %}icon-employe{% endif %}">
+                {% if role == 'admin' %}
+                    <i class="fas fa-shield-alt"></i>
+                {% else %}
+                    <i class="fas fa-user"></i>
+                {% endif %}
+            </div>
+            <h5 class="fw-bold mb-1">
+                {% if role == 'admin' %}Espace Administrateur{% else %}Espace Employé{% endif %}
+            </h5>
+            <p class="text-muted small mb-0">Connectez-vous pour continuer</p>
+        </div>
+
+        {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-danger py-2 small mb-3">
+                <i class="fas fa-exclamation-circle me-1"></i>{{ message }}
+            </div>
+            {% endfor %}
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="role" value="{{ role }}">
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Nom d'utilisateur</label>
+                <input type="text" name="username" class="form-control" required autofocus placeholder="Votre identifiant">
+            </div>
+            <div class="mb-4">
+                <label class="form-label small fw-semibold">Mot de passe</label>
+                <input type="password" name="password" class="form-control" required placeholder="••••••••">
+            </div>
+            <button type="submit" class="btn-login {% if role == 'admin' %}admin{% else %}employe{% endif %}">
+                <i class="fas fa-sign-in-alt me-2"></i>Se connecter
+            </button>
+        </form>
+
+        <a href="{% url 'welcome' %}" class="back-link">
+            <i class="fas fa-arrow-left me-1"></i>Retour
+        </a>
+    </div>
+</body>
+</html>

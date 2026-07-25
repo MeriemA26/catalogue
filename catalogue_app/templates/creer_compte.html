@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h5 class="fw-bold mb-0">
+        <i class="fas fa-user-plus text-primary me-2"></i>Gestion des comptes employés
+    </h5>
+</div>
+
+<!-- Formulaire de création -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0 pt-3">
+        <h6 class="fw-bold mb-0">Créer un compte employé</h6>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label small fw-semibold">Nom d'utilisateur</label>
+                    {{ form.username }}
+                    {% if form.username.errors %}
+                        <div class="text-danger small mt-1">{{ form.username.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">Mot de passe</label>
+                    {{ form.password1 }}
+                    {% if form.password1.errors %}
+                        <div class="text-danger small mt-1">{{ form.password1.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">Confirmer le mot de passe</label>
+                    {{ form.password2 }}
+                    {% if form.password2.errors %}
+                        <div class="text-danger small mt-1">{{ form.password2.errors|striptags }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold d-block">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-user-plus me-2"></i>Créer
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Liste des employés -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 pt-3">
+        <h6 class="fw-bold mb-0">Comptes employés existants ({{ employes|length }})</h6>
+    </div>
+    <div class="card-body p-0">
+        {% if employes %}
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" style="table-layout: fixed;">
+                <thead>
+                    <tr>
+                        <th style="width: 35%;">Nom d'utilisateur</th>
+                        <th class="text-center" style="width: 20%;">Créé le</th>
+                        <th class="text-center" style="width: 20%;">Statut</th>
+                        <th class="text-center" style="width: 25%;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for employe in employes %}
+                    <tr>
+                        <td class="text-truncate"><strong>{{ employe.username }}</strong></td>
+                        <td class="text-center"><small>{{ employe.date_joined|date:"d/m/y" }}</small></td>
+                        <td class="text-center">
+                            {% if employe.is_active %}
+                                <span class="badge bg-success">Actif</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Désactivé</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <div class="d-flex gap-1 justify-content-center">
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#pwdModal{{ employe.id }}" title="Changer le mot de passe">
+                                    <i class="fas fa-key"></i>
+                                </button>
+                                <form method="post" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="delete_user_id" value="{{ employe.id }}">
+                                    {% if employe.is_active %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Désactiver</button>
+                                    {% else %}
+                                        <button type="submit" class="btn btn-sm btn-outline-success">Réactiver</button>
+                                    {% endif %}
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-4 mb-0">Aucun compte employé créé pour le moment</p>
+        {% endif %}
+    </div>
+</div>
+
+{% for employe in employes %}
+<div class="modal fade" id="pwdModal{{ employe.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold">Nouveau mot de passe — {{ employe.username }}</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="change_password_user_id" value="{{ employe.id }}">
+                <div class="modal-body">
+                    <div class="alert alert-info py-2 small mb-3">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Minimum 8 caractères, différent du nom d'utilisateur, pas uniquement des chiffres.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Nouveau mot de passe</label>
+                        <input type="password" name="new_password1" class="form-control" minlength="8" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Confirmer</label>
+                        <input type="password" name="new_password2" class="form-control" minlength="8" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

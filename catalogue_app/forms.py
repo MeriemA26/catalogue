@@ -2,7 +2,50 @@
 from django import forms
 from django.forms.widgets import ClearableFileInput
 from .models import Produit, Catalogue, Enseigne
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import User
+from django.contrib.auth.forms import SetPasswordForm
+class EmployeCreationForm(UserCreationForm):
+    class Meta:
+        model = User
+        fields = ['username']
+        labels = {'username': "Nom d'utilisateur"}
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs['class'] = 'form-control'  
 
+class EmployePasswordChangeForm(SetPasswordForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs['class'] = 'form-control form-control-sm'
+
+# forms.py — ajoute ceci
+class AdminCreationForm(UserCreationForm):
+    code_secret = forms.CharField(
+        label="Code administrateur",
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Code fourni par la direction'})
+    )
+
+    class Meta:
+        model = User
+        fields = ['username']
+        labels = {'username': "Nom d'utilisateur"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            if name != 'code_secret':
+                field.widget.attrs['class'] = 'form-control'
+
+    def clean_code_secret(self):
+        from django.conf import settings
+        code = self.cleaned_data.get('code_secret')
+        if code != settings.ADMIN_SIGNUP_CODE:
+            raise forms.ValidationError("Code administrateur incorrect.")
+        return code
+     
 # 🔥 Widget personnalisé pour support multiple files
 class MultipleFileInput(ClearableFileInput):
     allow_multiple_selected = True

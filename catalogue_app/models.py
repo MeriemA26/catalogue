@@ -1,7 +1,8 @@
 # catalogue_app/models.py
 from django.db import models
 from django.utils import timezone
-from decimal import Decimal, InvalidOperation  
+from decimal import Decimal, InvalidOperation 
+from django.contrib.auth.models import User 
 import re
 
 class Enseigne(models.Model):
@@ -58,7 +59,16 @@ class Catalogue(models.Model):
     
 class Produit(models.Model):
     catalogue = models.ForeignKey(Catalogue, on_delete=models.CASCADE, related_name='produits', verbose_name="Catalogue")
-    
+
+    cree_par = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='produits_crees', verbose_name="Créé par"
+    )
+    modifie_par = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='produits_modifies', verbose_name="Modifié par"
+    )
+
     # Champs extraits par YOLO
     nom = models.CharField(max_length=255, blank=True, null=True, verbose_name="Nom (Affiché)")
     nom_fr = models.CharField(max_length=255, blank=True, null=True, verbose_name="Nom (FR)")
@@ -185,3 +195,29 @@ class Produit(models.Model):
     
     def __str__(self):
         return self.nom or f"Produit #{self.id}"
+
+# catalogue_app/models.py — à ajouter
+class JournalAction(models.Model):
+    ACTION_CHOICES = [
+        ('ajout', 'Ajout'),
+        ('modification', 'Modification'),
+        ('suppression', 'Suppression'),
+    ]
+    utilisateur = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name='actions',
+        verbose_name="Utilisateur"
+    )
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    produit_nom = models.CharField(max_length=255, blank=True, null=True)
+    catalogue_info = models.CharField(max_length=255, blank=True, null=True)
+    catalogue = models.ForeignKey(
+        Catalogue, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='actions_journal', verbose_name="Catalogue"
+    )
+    date_action = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date_action']
+
+    def __str__(self):
+        return f"{self.get_action_display()} - {self.produit_nom} par {self.utilisateur}"

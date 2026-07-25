@@ -17,20 +17,183 @@ from django.http import StreamingHttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
 import time
-from .models import Enseigne, Catalogue, Produit
-from .forms import UploadForm, ProduitForm
+from .models import Enseigne, Catalogue, Produit , JournalAction
+from .forms import UploadForm, ProduitForm,AdminCreationForm
 from .utils import OCRProcessor
 import openpyxl
 from openpyxl.styles import Font, Alignment, Border, Side
 from django.http import HttpResponse
 from .sql_sync import SQLServerSync
-
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from django.db.models import Count, Q
+from .decorators import admin_required
+from django.contrib.auth.models import User
+from .forms import EmployeCreationForm, EmployePasswordChangeForm
 sql_sync = SQLServerSync()
 # Configuration du logging - Désactiver complètement
 logging.disable(logging.CRITICAL)
 logger = logging.getLogger(__name__)
-# catalogue_app/views.py
 
+def welcome(request):
+    """Page d'accueil publique - choix du rôle avant connexion"""
+    if request.user.is_authenticated:
+        return redirect('index')
+    return render(request, 'welcome.html')
+
+def login_view(request):
+    if request.user.is_authenticated:
+        return redirect('index')
+
+    role = request.POST.get('role') or request.GET.get('role', 'employe')
+
+    if request.method == 'POST':
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '')
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            if role == 'admin' and not user.is_staff:
+                messages.error(request, "Ce compte n'est pas un compte administrateur.")
+                return render(request, 'login.html', {'role': role})
+            if role == 'employe' and user.is_staff:
+                messages.error(request, "Ce compte est un compte administrateur. Utilisez l'onglet Administrateur.")
+                return render(request, 'login.html', {'role': role})
+            login(request, user)
+            return redirect('index')
+        messages.error(request, "Nom d'utilisateur ou mot de passe incorrect.")
+        return render(request, 'login.html', {'role': role})
+
+    return render(request, 'login.html', {'role': role})
+
+def register_admin(request):
+    if request.user.is_authenticated:
+        return redirect('index')
+
+    if request.method == 'POST':
+        form = AdminCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.is_staff = True   # 🔥 devient admin
+            user.save()
+            login(request, user)
+            messages.success(request, f"Compte administrateur '{user.username}' créé avec succès.")
+            return redirect('index')
+    else:
+        form = AdminCreationForm()
+
+    return render(request, 'register_admin.html', {'form': form})
+
+def logout_view(request):
+    logout(request)
+    return redirect('welcome')
+
+@admin_required
+def creer_compte(request):
+    """Page admin : créer des comptes employés + voir la liste"""
+    employes = User.objects.filter(is_staff=False).order_by('-date_joined')
+
+    if request.method == 'POST':
+        if 'delete_user_id' in request.POST:
+            # Désactiver un compte (sans le supprimer, pour garder l'historique)
+            user_id = request.POST.get('delete_user_id')
+            try:
+                employe = User.objects.get(id=user_id, is_staff=False)
+                employe.is_active = not employe.is_active
+                employe.save()
+                statut = "réactivé" if employe.is_active else "désactivé"
+                messages.success(request, f"Compte '{employe.username}' {statut}.")
+            except User.DoesNotExist:
+                messages.error(request, "Compte introuvable.")
+            return redirect('creer_compte')
+        if 'change_password_user_id' in request.POST:
+                    user_id = request.POST.get('change_password_user_id')
+                    try:
+                        employe = User.objects.get(id=user_id, is_staff=False)
+                        pwd_form = EmployePasswordChangeForm(employe, request.POST)
+                        if pwd_form.is_valid():
+                            pwd_form.save()
+                            messages.success(request, f"✅ Mot de passe de '{employe.username}' modifié avec succès.")
+                        else:
+                            # 🔥 Récupérer TOUTES les erreurs (min 8 caractères, trop proche du username, etc.)
+                            erreurs = []
+                            for field_errors in pwd_form.errors.values():
+                                erreurs.extend(field_errors)
+                            message_erreur = " ".join(erreurs) if erreurs else "Mot de passe invalide."
+                            messages.error(request, f"❌ Mot de passe non modifié : {message_erreur}")
+                    except User.DoesNotExist:
+                        messages.error(request, "Compte introuvable.")
+                    return redirect('creer_compte')
+        form = EmployeCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save(commit=False)
+            user.is_staff = False
+            user.save()
+            messages.success(request, f"✅ Compte employé '{user.username}' créé avec succès.")
+            return redirect('creer_compte')
+    else:
+        form = EmployeCreationForm()
+
+    context = {
+        'form': form,
+        'employes': employes,
+    }
+    return render(request, 'creer_compte.html', context)
+@admin_required
+def admin_dashboard(request):
+    stats_employes = (
+        Produit.objects.filter(cree_par__isnull=False, est_sauvegarde=True)
+        .values('cree_par__username')
+        .annotate(nb_ajouts=Count('id'))
+        .order_by('-nb_ajouts')
+    )
+
+    # 🔥 Filtres sur le journal (n'affecte rien d'autre sur la page)
+    journal = JournalAction.objects.select_related('utilisateur').order_by('-date_action')
+
+    filtre_employe = request.GET.get('employe', '').strip()
+    filtre_action = request.GET.get('action', '').strip()
+    filtre_recherche = request.GET.get('recherche', '').strip()
+    filtre_date_debut = request.GET.get('date_debut', '').strip()
+    filtre_date_fin = request.GET.get('date_fin', '').strip()
+
+    if filtre_employe:
+        journal = journal.filter(utilisateur__username__icontains=filtre_employe)
+    if filtre_action:
+        journal = journal.filter(action=filtre_action)
+    if filtre_recherche:
+        journal = journal.filter(
+            Q(produit_nom__icontains=filtre_recherche) |
+            Q(catalogue_info__icontains=filtre_recherche)
+        )
+    if filtre_date_debut:
+        journal = journal.filter(catalogue__date_debut__gte=filtre_date_debut)
+    if filtre_date_fin:
+        journal = journal.filter(catalogue__date_fin__lte=filtre_date_fin)
+    journal = journal[:200]
+
+    # Liste des employés distincts pour remplir le filtre déroulant
+    employes_journal = (
+        JournalAction.objects.filter(utilisateur__isnull=False)
+        .values_list('utilisateur__username', flat=True)
+        .distinct()
+        .order_by('utilisateur__username')
+    )
+
+    context = {
+        'stats_employes': stats_employes,
+        'journal': journal,
+        'total_employes': User.objects.filter(is_staff=False, is_active=True).count(),
+        'total_produits': Produit.objects.count(),
+        'employes_journal': employes_journal,
+        'filtre_employe': filtre_employe,
+        'filtre_action': filtre_action,
+        'filtre_recherche': filtre_recherche,
+        'filtre_date_debut': filtre_date_debut,
+        'filtre_date_fin': filtre_date_fin,
+    }
+    return render(request, 'admin_dashboard.html', context)
 def supprimer_catalogues_vides():
     """Supprime tous les catalogues qui n'ont plus de produits"""
     from django.db import models
@@ -45,7 +208,7 @@ def supprimer_catalogues_vides():
             c.delete()
         print(f"✅ {count} catalogues vides supprimés")
     return count
-
+@login_required
 def index(request):
     """Page d'accueil - Tableau de bord simplifié"""
     from django.db.models import Count, Q
@@ -57,8 +220,7 @@ def index(request):
     total_enseignes = Enseigne.objects.count()
     
     # Produits à traiter (non sauvegardés)
-    produits_a_traiter = Produit.objects.filter(est_sauvegarde=False).count()
-    
+    produits_a_traiter = Produit.objects.filter(est_sauvegarde=False, cree_par=request.user).count() 
     # Catalogues actifs avec comptage des produits sauvegardés
     catalogues_actifs = Catalogue.objects.annotate(
         nb_produits=Count('produits'),
@@ -75,8 +237,20 @@ def index(request):
         'produits_a_traiter': produits_a_traiter,
         'catalogues_actifs': catalogues_actifs,
     }
+    if request.user.is_staff:
+        context['stats_employes'] = (
+            Produit.objects.filter(cree_par__isnull=False)
+            .values('cree_par__username')
+            .annotate(nb_produits=Count('id'))
+            .order_by('-nb_produits')
+        )
+        context['dernieres_saisies'] = (
+            Produit.objects.filter(cree_par__isnull=False)
+            .select_related('cree_par', 'catalogue__enseigne')
+            .order_by('-created_at')[:10]
+        )
     return render(request, 'index.html', context)
-
+@login_required
 def upload(request):
     """Page d'upload avec traitement OCR pour une ou plusieurs images"""
     # Initialiser last_uploaded_image
@@ -94,17 +268,17 @@ def upload(request):
         except Catalogue.DoesNotExist:
             catalogue_actuel = None
             if 'active_catalogue_id' in request.session:
-                del request.session['active_catalogue_id']
-    
-    #  Si pas de catalogue dans la session, vérifier s'il y a des produits non sauvegardés
-    if not catalogue_actuel:
-        produits_non_sauvegardes_total = Produit.objects.filter(est_sauvegarde=False).count()
-        
-        if produits_non_sauvegardes_total > 0:
-            dernier_catalogue = Catalogue.objects.filter(
-                produits__est_sauvegarde=False
-            ).distinct().order_by('-date_upload').first()
+                        del request.session['active_catalogue_id']
             
+            #  Si pas de catalogue dans la session, vérifier s'il y a des produits non sauvegardés
+            if not catalogue_actuel:
+                    produits_non_sauvegardes_total = Produit.objects.filter(
+                        est_sauvegarde=False, cree_par=request.user
+                    ).count()
+            if produits_non_sauvegardes_total > 0:
+                        dernier_catalogue = Catalogue.objects.filter(
+                            produits__est_sauvegarde=False, produits__cree_par=request.user
+                        ).distinct().order_by('-date_upload').first()
             if dernier_catalogue:
                 catalogue_actuel = dernier_catalogue
                 request.session['active_catalogue_id'] = dernier_catalogue.id
@@ -293,10 +467,11 @@ def upload(request):
                                     extrait_texte=data.get('extrait_texte', '') if data.get('extrait_texte') else None,
                                     image_produit=image_produit,
                                 )
+                                produit.cree_par = request.user
                                 produit.save()
                                 total_produits += 1
                                 print(f"Produit cree: ID {produit.id}")
-                                
+
                             except Exception as e:
                                 print(f"Erreur creation produit {idx}_{pidx}: {e}")
                                 import traceback
@@ -362,9 +537,10 @@ def upload(request):
     catalogues_recents = {}
     produits_non_sauvegardes = 0
     
-    # Récupérer tous les produits non sauvegardés
-    tous_produits = Produit.objects.filter(est_sauvegarde=False).order_by('-created_at')
-    
+    # Récupérer uniquement les produits non sauvegardés créés par l'utilisateur connecté (admin ou employé)
+    tous_produits = Produit.objects.filter(
+            est_sauvegarde=False, cree_par=request.user
+        ).order_by('-created_at')
     if tous_produits.exists():
         # 🔥 Utiliser le premier catalogue comme référence
         premier_produit = tous_produits.first()
@@ -422,7 +598,7 @@ def upload(request):
         'catalogue_actuel': catalogue_actuel,
     }
     return render(request, 'upload.html', context)
-
+@login_required
 def upload_stream(request):
     """
     Vue SSE : reçoit les images uploadées, lance le pipeline produit par produit,
@@ -752,9 +928,8 @@ def upload_stream(request):
                     print(f"  produit.prix_avant: {produit.prix_avant}")
                     print(f"  produit.pourcentage: {produit.pourcentage}")
                     print(f"  produit.remise: {produit.remise}")
-                    
+                    produit.cree_par = request.user
                     produit.save()
-                    
                     print(f"\n  📊 VALEURS PRODUIT APRÈS SAVE:")
                     print(f"  produit.prix: {produit.prix}")
                     print(f"  produit.prix_avant: {produit.prix_avant}")
@@ -833,7 +1008,7 @@ def upload_stream(request):
     return response
 
 # catalogue_app/views.py - edit_product CORRIGÉ
-
+@login_required
 def edit_product(request, product_id):
     """Éditer un produit individuel avec calcul automatique des prix (TND)"""
     produit = get_object_or_404(Produit, id=product_id)
@@ -884,8 +1059,8 @@ def edit_product(request, product_id):
                         produit.pourcentage = (remise / produit.prix_avant) * 100
                 
                 # Sauvegarder les modifications
+                produit.modifie_par = request.user
                 produit.save()
-                
                 messages.success(request, 'Produit mis à jour avec succès !')
                 return redirect('upload')
                 
@@ -902,6 +1077,7 @@ def edit_product(request, product_id):
     }
     return render(request, 'edit_product.html', context)
 
+@login_required
 @csrf_exempt
 def update_product_field(request):
     """API pour mettre à jour un champ d'un produit en AJAX"""
@@ -925,7 +1101,7 @@ def update_product_field(request):
                         setattr(produit, field_name, None)
                 else:
                     setattr(produit, field_name, None)
-                
+                produit.modifie_par = request.user
                 produit.save()
                 
                 return JsonResponse({
@@ -944,7 +1120,7 @@ def update_product_field(request):
             return JsonResponse({'success': False, 'error': str(e)})
     
     return JsonResponse({'success': False, 'error': 'Methode non autorisee'})
-
+@login_required
 def save_selected_products(request):
     """Sauvegarder les produits sélectionnés (depuis la base de données)"""
     if request.method == 'POST':
@@ -990,8 +1166,16 @@ def save_selected_products(request):
                 messages.warning(request, 'Aucun produit sélectionné non sauvegardé. Ils sont peut-être déjà sauvegardés.')
                 return redirect('upload')
             
+            for p in produits:
+                JournalAction.objects.create(
+                    utilisateur=request.user,
+                    action='ajout',
+                    produit_nom=p.nom_fr if p.nom_fr and p.nom_fr != '-' else p.nom_ar,
+                    catalogue_info=str(p.catalogue),
+                    catalogue=p.catalogue,   # 🔥 nouveau
+                )
+
             produits.update(est_sauvegarde=True)
-            
             try:
                 produits_a_sync = Produit.objects.filter(id__in=product_ids, est_sauvegarde=True)
                 if produits_a_sync.exists():
@@ -1059,7 +1243,7 @@ def save_selected_products(request):
             messages.error(request, f"Erreur lors de la sauvegarde: {str(e)}")
             return redirect('upload')
     return redirect('upload')
-
+@login_required
 def save_all_products(request):
     """Sauvegarder tous les produits et rediriger vers product_list"""
     if request.method == 'POST':
@@ -1079,15 +1263,22 @@ def save_all_products(request):
                 except Catalogue.DoesNotExist:
                     pass
             
-            produits = Produit.objects.filter(est_sauvegarde=False)
-            count = produits.count()
+            produits = Produit.objects.filter(est_sauvegarde=False, cree_par=request.user)
+            count = produits.count()    
             
             if count == 0:
                 messages.info(request, 'Aucun nouveau produit a sauvegarder.')
-                return redirect('product_list')
-            
-            produits.update(est_sauvegarde=True)
+                return redirect('product_list') 
+            for p in produits:
+                JournalAction.objects.create(
+                    utilisateur=request.user,
+                    action='ajout',
+                    produit_nom=p.nom_fr if p.nom_fr and p.nom_fr != '-' else p.nom_ar,
+                    catalogue_info=str(p.catalogue),
+                    catalogue=p.catalogue,   # 🔥 nouveau
+                )
 
+            produits.update(est_sauvegarde=True)
             try:
                 produits_a_sync = Produit.objects.filter(est_sauvegarde=True)
                 if produits_a_sync.exists():
@@ -1117,7 +1308,7 @@ def save_all_products(request):
         return redirect('product_list')
     return redirect('upload')
 
-# catalogue_app/views.py - CORRIGER delete_selected_products
+@login_required
 def delete_selected_products(request):
     """Supprimer les produits sélectionnés (depuis la base de données)"""
     if request.method == 'POST':
@@ -1148,7 +1339,6 @@ def delete_selected_products(request):
             
             # 🔥 Récupérer les IDs AVANT suppression
             produits_ids = list(produits.values_list('id', flat=True))
-            
             for produit in produits:
                 if produit.image_produit:
                     try:
@@ -1226,22 +1416,19 @@ def delete_selected_products(request):
             messages.error(request, f"Erreur lors de la suppression: {str(e)}")
             return redirect('upload')
     return redirect('upload')
-# catalogue_app/views.py - CORRIGER delete_all_products
-
+@login_required
 def delete_all_products(request):
     """Supprimer tous les produits non sauvegardés (depuis la base de données)"""
     if request.method == 'POST':
         try:
-            produits = Produit.objects.filter(est_sauvegarde=False)
+            produits = Produit.objects.filter(est_sauvegarde=False, cree_par=request.user)
             count = produits.count()
             
             if count == 0:
                 messages.info(request, 'Aucun produit à supprimer.')
                 return redirect('upload')
-            
             # 🔥 Récupérer les IDs AVANT suppression
             produits_ids = list(produits.values_list('id', flat=True))
-            
             # Supprimer les images associées
             for produit in produits:
                 if produit.image_produit:
@@ -1282,7 +1469,7 @@ def delete_all_products(request):
         
         return redirect('upload')
     return redirect('upload')
-
+@login_required
 def product_list(request):
     """Liste des produits du dernier catalogue sauvegardé avec filtres"""
     supprimer_catalogues_vides()
@@ -1380,6 +1567,7 @@ def product_list(request):
     
     return render(request, 'product_list.html', context)
 
+@login_required
 def get_product_details(request, product_id):
     """API pour récupérer les détails d'un produit (AJAX)"""
     if request.method == 'GET':
@@ -1401,8 +1589,7 @@ def get_product_details(request, product_id):
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Methode non autorisee'})
-
-
+@login_required
 def get_catalogue_image(request, catalogue_id):
     """API pour récupérer l'image du catalogue"""
     if request.method == 'GET':
@@ -1415,11 +1602,12 @@ def get_catalogue_image(request, catalogue_id):
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Methode non autorisee'})
-
-
+@login_required
 def get_recent_products(request):
-    """Récupère les produits non sauvegardés récents"""
-    produits = Produit.objects.filter(est_sauvegarde=False).order_by('-created_at')[:10]
+    """Récupère les produits non sauvegardés récents de l'utilisateur connecté"""
+    produits = Produit.objects.filter(
+        est_sauvegarde=False, cree_par=request.user
+    ).order_by('-created_at')[:10]
     data = []
     for p in produits:
         data.append({
@@ -1437,6 +1625,7 @@ def get_recent_products(request):
             'image_url': p.image_produit.url if p.image_produit else None,
         })
     return JsonResponse({'products': data})
+@login_required
 def add_product(request):
     """Page pour ajouter un produit manuellement (sans extraction)"""
     
@@ -1454,7 +1643,9 @@ def add_product(request):
     # 🔥 SI PAS DE CATALOGUE EN SESSION, CHERCHER DANS LA BASE
     if not catalogue:
         # Chercher le dernier catalogue avec des produits non sauvegardés
-        dernier_produit = Produit.objects.filter(est_sauvegarde=False).order_by('-created_at').first()
+        dernier_produit = Produit.objects.filter(
+                    est_sauvegarde=False, cree_par=request.user
+                ).order_by('-created_at').first()
         if dernier_produit and dernier_produit.catalogue:
             catalogue = dernier_produit.catalogue
             # 🔥 Important : Sauvegarder dans la session pour la prochaine fois
@@ -1553,8 +1744,8 @@ def add_product(request):
             image_produit=image_produit,
             est_sauvegarde=False,
         )
+        produit.cree_par = request.user
         produit.save()
-        
         messages.success(request, f"✅ Produit '{produit.nom}' ajouté avec succès !")
         return redirect('upload')
     
@@ -1562,7 +1753,7 @@ def add_product(request):
         'catalogue': catalogue,
     }
     return render(request, 'add_product.html', context)
-
+@login_required
 def get_marques_list(request):
     """API pour récupérer la liste des marques uniques des produits non sauvegardés"""
     if request.method == 'GET':
@@ -1590,6 +1781,7 @@ def get_marques_list(request):
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
 
+@login_required
 def edit_product_saved(request, product_id):
     """Éditer un produit sauvegardé (redirige vers product_list après sauvegarde)"""
     produit = get_object_or_404(Produit, id=product_id)
@@ -1656,8 +1848,14 @@ def edit_product_saved(request, product_id):
                         produit.pourcentage = (remise / produit.prix_avant) * 100
                 
                 # 🔥 Sauvegarder les modifications
+                produit.modifie_par = request.user
                 produit.save()
-                
+                JournalAction.objects.create(
+                    utilisateur=request.user, action='modification',
+                    produit_nom=produit.nom_fr if produit.nom_fr and produit.nom_fr != '-' else produit.nom_ar,
+                    catalogue_info=str(produit.catalogue),
+                    catalogue=produit.catalogue,   # 🔥 nouveau
+                )
                 # 🔥🔥🔥 AJOUT : Synchronisation SQL Server
                 try:
                     sql_sync.sync_produits([produit])
@@ -1688,6 +1886,7 @@ def edit_product_saved(request, product_id):
     return render(request, 'edit_product_saved.html', context)
 
 @csrf_exempt
+@login_required
 def delete_saved_product(request, product_id):
     """Supprimer un produit sauvegardé"""
     if request.method == 'POST':
@@ -1696,6 +1895,10 @@ def delete_saved_product(request, product_id):
             
             # 🔥 Récupérer l'ID avant suppression
             produit_id = produit.id
+            JournalAction.objects.create(
+                utilisateur=request.user, action='suppression',
+                produit_nom=produit.nom, catalogue_info=str(produit.catalogue)
+            )
             print(f"🗑️ Suppression du produit ID: {produit_id}")
             
             # Supprimer l'image associée
@@ -1728,7 +1931,7 @@ def delete_saved_product(request, product_id):
             return JsonResponse({'success': False, 'error': str(e)})
     
     return JsonResponse({'success': False, 'error': 'Méthode non autorisée'})
-
+@login_required
 def export_products_excel(request):
     """Exporter les produits du dernier catalogue sauvegardé en fichier Excel"""
     
@@ -1856,7 +2059,7 @@ def export_products_excel(request):
 
 # catalogue_app/views.py - Ajouter cette fonction après export_products_excel
 # catalogue_app/views.py - Version améliorée de export_catalogue_excel
-
+@login_required
 def export_catalogue_excel(request, catalogue_id):
     """Exporter les produits d'un catalogue spécifique en fichier Excel sans répétition des infos du catalogue"""
     

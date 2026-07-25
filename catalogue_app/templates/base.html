@@ -10,7 +10,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome 6 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Polices (chargées ici, pas en @import, pour ne jamais bloquer le rendu) -->
+    <!-- Polices -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -20,73 +20,118 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <!-- BARRE DE NAVIGATION -->
-    <nav class="navbar navbar-expand-lg navbar-delice">
-        <div class="container">
-            <!-- Logo non cliquable -->
-            <div class="navbar-brand">
-                <img src="{% static 'images/logo_delice.png' %}" alt="Délice" class="brand-logo" style="height: 50px; width: auto;">
-                <span class="ms-2 fw-bold" style="font-size: 1.3rem;">Catalogue Manager</span>
-            </div>
-            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}" href="{% url 'index' %}">
-                            <i class="fas fa-chart-pie"></i>Accueil
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'product_list' %}active{% endif %}" href="{% url 'product_list' %}">
-                            <i class="fas fa-history"></i>Historique
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.resolver_match.url_name == 'upload' %}active{% endif %}" href="{% url 'upload' %}">
-                            <i class="fas fa-upload"></i>Importation
-                        </a>
-                    </li>
-                </ul>
-            </div>
+
+    <!-- Bouton pour rouvrir la sidebar une fois cachée -->
+    <button class="sidebar-reopen-btn" id="sidebarReopenBtn">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- SIDEBAR -->
+    <nav class="sidebar-delice" id="sidebarDelice">
+        <div class="sidebar-brand" id="sidebarBrandToggle">
+            <img src="{% static 'images/logo_delice.png' %}" alt="Délice">
+            <span>Catalogue Manager</span>
         </div>
+
+        <ul class="sidebar-nav">
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'index' %}active{% endif %}" href="{% url 'index' %}">
+                    <i class="fas fa-chart-pie"></i>Accueil
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'product_list' %}active{% endif %}" href="{% url 'product_list' %}">
+                    <i class="fas fa-history"></i>Historique
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {% if request.resolver_match.url_name == 'upload' %}active{% endif %}" href="{% url 'upload' %}">
+                    <i class="fas fa-upload"></i>Importation
+                </a>
+            </li>
+            {% if user.is_staff %}
+            <li class="nav-item">
+                <a class="nav-link" href="#" data-bs-toggle="collapse" data-bs-target="#adminSubmenu"
+                   aria-expanded="{% if request.resolver_match.url_name == 'admin_dashboard' or request.resolver_match.url_name == 'creer_compte' %}true{% else %}false{% endif %}">
+                    <i class="fas fa-user-shield"></i>Administration
+                    <i class="fas fa-chevron-down ms-auto" style="font-size: 0.7rem;"></i>
+                </a>
+                <div class="collapse {% if request.resolver_match.url_name == 'admin_dashboard' or request.resolver_match.url_name == 'creer_compte' %}show{% endif %}" id="adminSubmenu">
+                    <ul class="sidebar-submenu">
+                        <li>
+                            <a class="nav-link {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}" href="{% url 'admin_dashboard' %}">
+                                <i class="fas fa-shield-alt"></i>Espace Admin
+                            </a>
+                        </li>
+                        <li>
+                            <a class="nav-link {% if request.resolver_match.url_name == 'creer_compte' %}active{% endif %}" href="{% url 'creer_compte' %}">
+                                <i class="fas fa-user-plus"></i>Comptes
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </li>
+            {% endif %}
+        </ul>
+
+        <ul class="sidebar-nav sidebar-footer">
+            <li class="nav-item">
+                <a class="nav-link" href="{% url 'logout' %}">
+                    <i class="fas fa-sign-out-alt"></i>Déconnexion
+                </a>
+            </li>
+        </ul>
     </nav>
 
-    <!-- MESSAGES -->
-    <div class="container mt-3">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert {% if message.tags == 'success' %}alert-delice-success{% elif message.tags == 'error' %}alert-delice-danger{% elif message.tags == 'warning' %}alert-delice-warning{% else %}alert-delice-success{% endif %} alert-dismissible fade show" role="alert">
-                    <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} me-2"></i>
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            {% endfor %}
-        {% endif %}
+    <!-- CONTENU PRINCIPAL -->
+    <div class="main-wrapper" id="mainWrapper">
+
+        <!-- MESSAGES -->
+        <div class="container mt-3">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert {% if message.tags == 'success' %}alert-delice-success{% elif message.tags == 'error' %}alert-delice-danger{% elif message.tags == 'warning' %}alert-delice-warning{% else %}alert-delice-success{% endif %} alert-dismissible fade show" role="alert">
+                        <i class="fas {% if message.tags == 'success' %}fa-check-circle{% elif message.tags == 'error' %}fa-exclamation-circle{% elif message.tags == 'warning' %}fa-exclamation-triangle{% else %}fa-info-circle{% endif %} me-2"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- CONTENU -->
+        <main class="container py-3">
+            {% block content %}{% endblock %}
+        </main>
     </div>
 
-    <!-- CONTENU PRINCIPAL -->
-    <main class="container py-3">
-        {% block content %}{% endblock %}
-    </main>
-
-    <!-- PIED DE PAGE -->
-    <footer class="footer-delice">
-        <div class="container">
-            <span class="delice-logo"></span>
-            &copy; {% now "Y" %} - Tous droits réservés
-        </div>
-    </footer>
-
     <!-- SCRIPTS -->
-    <!-- jQuery : requis par $ / $.ajax utilisés dans upload.html, product_list.html, edit_product.html -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
 
-    <!-- Les deux noms sont supportés car tes templates utilisent l'un ou l'autre -->
+    <script>
+        const sidebar = document.getElementById('sidebarDelice');
+        const mainWrapper = document.getElementById('mainWrapper');
+        const brandToggle = document.getElementById('sidebarBrandToggle');
+        const reopenBtn = document.getElementById('sidebarReopenBtn');
+        const isMobile = () => window.innerWidth <= 991;
+
+        function toggleSidebar() {
+            if (isMobile()) {
+                sidebar.classList.toggle('show');
+            } else {
+                sidebar.classList.toggle('hidden');
+                mainWrapper.classList.toggle('sidebar-is-hidden');
+                reopenBtn.classList.toggle('show');
+            }
+        }
+
+        brandToggle.addEventListener('click', toggleSidebar);
+        reopenBtn.addEventListener('click', toggleSidebar);
+    </script>
+
     {% block extra_js %}{% endblock %}
     {% block scripts %}{% endblock %}
 </body>

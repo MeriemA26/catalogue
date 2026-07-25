@@ -226,3 +226,6 @@ WARNING 2026-07-21 13:26:32,993 easyocr 17864 23960 Using CPU. Note: This module
 INFO 2026-07-21 19:22:06,388 fake_tensor 30540 28136 FakeTensor cache stats:
 INFO 2026-07-21 19:22:06,390 fake_tensor 30540 28136   cache_hits: 0
 INFO 2026-07-21 19:22:06,390 fake_tensor 30540 28136   cache_misses: 0
+INFO 2026-07-25 20:18:35,247 fake_tensor 28508 26748 FakeTensor cache stats:
+INFO 2026-07-25 20:18:35,249 fake_tensor 28508 26748   cache_hits: 0
+INFO 2026-07-25 20:18:35,250 fake_tensor 28508 26748   cache_misses: 0

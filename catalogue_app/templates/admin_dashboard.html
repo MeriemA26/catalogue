@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h5 class="fw-bold mb-0">
+        Espace Administrateur
+    </h5>
+</div>
+
+<!-- Indicateur -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4 col-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-3">
+                <h6 class="text-muted small text-uppercase mb-1">Employés actifs</h6>
+                <h4 class="fw-bold mb-0">{{ total_employes }}</h4>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Produits ajoutés par employé -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white border-0">
+        <h6 class="fw-bold mb-0">
+            Produits ajoutés par employé
+        </h6>
+    </div>
+    <div class="card-body p-0">
+        {% if stats_employes %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Employé</th>
+                            <th class="text-center">Produits ajoutés</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in stats_employes %}
+                        <tr>
+                            <td><strong>{{ s.cree_par__username }}</strong></td>
+                            <td class="text-center">
+                                <span class="badge bg-primary">{{ s.nb_ajouts }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-4 text-muted">
+                <p class="mb-0 small">Aucune donnée pour le moment</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Journal des actions -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0">
+        <h6 class="fw-bold mb-0">
+             Journal des actions
+        </h6>
+    </div>
+
+    <!-- Barre de filtres -->
+    <div class="card-body pb-2">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">Employé</label>
+                <input type="text" name="employe" class="form-control form-control-sm" value="{{ filtre_employe }}" placeholder="Nom d'utilisateur..." list="liste-employes">
+                <datalist id="liste-employes">
+                    {% for emp in employes_journal %}
+                        <option value="{{ emp }}">
+                    {% endfor %}
+                </datalist>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">Action</label>
+                <select name="action" class="form-select form-select-sm">
+                    <option value="">Toutes</option>
+                    <option value="ajout" {% if filtre_action == 'ajout' %}selected{% endif %}>Ajout</option>
+                    <option value="modification" {% if filtre_action == 'modification' %}selected{% endif %}>Modification</option>
+                    <option value="suppression" {% if filtre_action == 'suppression' %}selected{% endif %}>Suppression</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">Recherche (produit / catalogue)</label>
+                <input type="text" name="recherche" class="form-control form-control-sm" value="{{ filtre_recherche }}" placeholder="Nom du produit...">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">Du</label>
+                <input type="date" name="date_debut" class="form-control form-control-sm" value="{{ filtre_date_debut }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">Au</label>
+                <input type="date" name="date_fin" class="form-control form-control-sm" value="{{ filtre_date_fin }}">
+            </div>
+            <div class="col-12 d-flex gap-2 mt-2">
+                <button type="submit" class="btn btn-sm btn-primary">
+                    <i class="fas fa-filter me-1"></i>Filtrer
+                </button>
+                <a href="{% url 'admin_dashboard' %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-undo me-1"></i>Réinitialiser
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <div class="card-body p-0">
+        {% if journal %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Employé</th>
+                            <th>Action</th>
+                            <th>Produit</th>
+                            <th>Catalogue</th>
+                            <th class="text-center">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for j in journal %}
+                        <tr>
+                            <td><strong>{{ j.utilisateur.username|default:"—" }}</strong></td>
+                            <td>
+                                {% if j.action == 'ajout' %}
+                                    <span class="badge bg-success">{{ j.get_action_display }}</span>
+                                {% elif j.action == 'modification' %}
+                                    <span class="badge" style="background-color: #878e93; color: rgb(255, 255, 255);">{{ j.get_action_display }}</span>
+                                {% else %}
+                                    <span class="badge bg-danger">{{ j.get_action_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ j.produit_nom|default:"—" }}</td>
+                            <td><small class="text-muted">{{ j.catalogue_info|default:"—" }}</small></td>
+                            <td class="text-center"><small class="text-muted">{{ j.date_action|date:"d/m/y H:i" }}</small></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-4 text-muted">
+                <p class="mb-0 small">Aucune action enregistrée</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

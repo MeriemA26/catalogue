@@ -151,3 +151,7 @@ LOGGING = {
         },
     },
 }
+LOGIN_URL = 'login'
+LOGIN_REDIRECT_URL = 'index'
+LOGOUT_REDIRECT_URL = 'login'
+ADMIN_SIGNUP_CODE = "DeliceAdmin2026"  

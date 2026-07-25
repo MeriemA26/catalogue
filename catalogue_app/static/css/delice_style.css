@@ -2111,3 +2111,150 @@ input.rtl {
     direction: rtl;
     text-align: right;
 }
+
+.sidebar-delice {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: 240px;
+  background: linear-gradient(180deg, var(--blue-900) 0%, var(--blue-600) 100%);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 0;
+  z-index: 1050;
+  overflow-y: auto;
+  border-right: 3px solid var(--blue-400);
+  box-shadow: var(--shadow-md);
+  transition: left var(--transition-slow);
+}
+
+.sidebar-delice.hidden {
+  left: -240px;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  margin-bottom: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.sidebar-brand img {
+  height: 40px;
+  width: 40px;
+  background: #ffffff;
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  object-fit: contain;
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar-brand span {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.05rem;
+  font-family: var(--font-display);
+}
+
+.sidebar-nav {
+  list-style: none;
+  padding: 0 12px;
+  margin: 0;
+  flex: 1;
+}
+
+.sidebar-nav .nav-item { margin-bottom: 4px; }
+
+.sidebar-nav .nav-link {
+  color: rgba(255,255,255,0.85) !important;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all var(--transition-normal);
+}
+
+.sidebar-nav .nav-link i { width: 18px; text-align: center; }
+
+.sidebar-nav .nav-link:hover {
+  background: rgba(255,255,255,0.14);
+  color: #ffffff !important;
+}
+
+.sidebar-nav .nav-link.active {
+  background: #ffffff;
+  color: var(--blue-800) !important;
+  box-shadow: var(--shadow-sm);
+}
+
+.sidebar-footer {
+  border-top: 1px solid rgba(255,255,255,0.15);
+  padding-top: 12px;
+  flex: 0;
+}
+
+.sidebar-submenu {
+  list-style: none;
+  padding-left: 26px;
+  margin: 4px 0 0;
+}
+
+.sidebar-submenu .nav-link {
+  font-size: 0.82rem;
+  padding: 8px 12px;
+}
+
+/* Bouton flottant qui remplace la sidebar une fois cachée (desktop) */
+.sidebar-reopen-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1055;
+  background: var(--blue-600);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  width: 44px;
+  height: 44px;
+  box-shadow: var(--shadow-md);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.sidebar-reopen-btn.show {
+  display: flex;
+}
+
+.main-wrapper {
+  margin-left: 240px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  transition: margin-left var(--transition-slow);
+}
+
+.main-wrapper.sidebar-is-hidden {
+  margin-left: 0;
+}
+
+@media (max-width: 991px) {
+  .sidebar-delice {
+    left: -240px;
+  }
+  .sidebar-delice.show {
+    left: 0;
+  }
+  .main-wrapper {
+    margin-left: 0 !important;
+  }
+}
