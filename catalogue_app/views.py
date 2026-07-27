@@ -222,12 +222,21 @@ def index(request):
     # Produits à traiter (non sauvegardés)
     produits_a_traiter = Produit.objects.filter(est_sauvegarde=False, cree_par=request.user).count() 
     # Catalogues actifs avec comptage des produits sauvegardés
+    #  IDs des catalogues où CET utilisateur a lui-même des produits en attente
+    mes_catalogues_en_cours = Catalogue.objects.filter(
+        produits__cree_par=request.user,
+        produits__est_sauvegarde=False
+    ).values_list('id', flat=True)
+
+    # Catalogues actifs : "Terminé" visible par tous, sinon uniquement si l'utilisateur y a un brouillon
     catalogues_actifs = Catalogue.objects.annotate(
         nb_produits=Count('produits'),
         nb_sauvegardes=Count('produits', filter=Q(produits__est_sauvegarde=True)),
         nb_non_sauvegardes=Count('produits', filter=Q(produits__est_sauvegarde=False))
     ).filter(
         nb_produits__gt=0
+    ).filter(
+        Q(nb_non_sauvegardes=0) | Q(id__in=mes_catalogues_en_cours)
     ).order_by('-date_debut')
     
     context = {
@@ -1480,6 +1489,7 @@ def product_list(request):
     date_fin = request.GET.get('date_fin')
     
     # Récupérer tous les catalogues avec produits sauvegardés
+    # Récupérer tous les catalogues avec produits sauvegardés (utilisé pour les filtres, reste global)
     catalogues_avec_produits = []
     for catalogue in Catalogue.objects.order_by('-date_upload'):
         produits_sauvegardes = catalogue.produits.filter(est_sauvegarde=True)
@@ -1489,6 +1499,20 @@ def product_list(request):
                 'produits': produits_sauvegardes,
                 'count': produits_sauvegardes.count()
             })
+
+    # 🔥 Catalogues où CET utilisateur a personnellement des produits sauvegardés
+    #    (sert uniquement à choisir le "dernier catalogue" par défaut, sans filtre)
+    catalogues_de_l_utilisateur = []
+    if not request.user.is_staff:
+        for catalogue in Catalogue.objects.order_by('-date_upload'):
+            produits_sauvegardes_user = catalogue.produits.filter(est_sauvegarde=True, cree_par=request.user)
+            if produits_sauvegardes_user.exists():
+                produits_sauvegardes_tous = catalogue.produits.filter(est_sauvegarde=True)
+                catalogues_de_l_utilisateur.append({
+                    'catalogue': catalogue,
+                    'produits': produits_sauvegardes_tous,
+                    'count': produits_sauvegardes_tous.count()
+                })
     
     # 🔥 APPLIQUER LES FILTRES
     filtered_catalogues = []
@@ -1526,12 +1550,16 @@ def product_list(request):
             filtered_catalogues.append(item)
     
     # 🔥 Si des filtres sont appliqués, afficher TOUS les catalogues filtrés
+    # 🔥 Si des filtres sont appliqués, afficher TOUS les catalogues filtrés (comportement global, inchangé)
     if enseigne_id or date_debut or date_fin:
         catalogues_a_afficher = filtered_catalogues
         has_filters = True
     else:
-        # Pas de filtre : prendre seulement le dernier catalogue
-        catalogues_a_afficher = catalogues_avec_produits[:1]  # Seulement le premier
+        # Pas de filtre : dernier catalogue personnel pour l'employé, dernier catalogue global pour l'admin
+        if request.user.is_staff:
+            catalogues_a_afficher = catalogues_avec_produits[:1]
+        else:
+            catalogues_a_afficher = catalogues_de_l_utilisateur[:1]
         has_filters = False
     
     # 🔥 Récupérer les données pour le template

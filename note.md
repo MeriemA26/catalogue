@@ -51,4 +51,5 @@ reste que  pour le tableau de bord ( affichage chq user /admin ) to think about 
 to do pour 26/07/2026
 
 **ajouter la part de login dans la documentation canvas** 
++ effacer les emoji et les commentaires inutiles 
 
