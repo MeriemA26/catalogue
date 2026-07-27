@@ -21,7 +21,6 @@ class EmployePasswordChangeForm(SetPasswordForm):
         for field in self.fields.values():
             field.widget.attrs['class'] = 'form-control form-control-sm'
 
-# forms.py — ajoute ceci
 class AdminCreationForm(UserCreationForm):
     code_secret = forms.CharField(
         label="Code administrateur",
@@ -46,7 +45,6 @@ class AdminCreationForm(UserCreationForm):
             raise forms.ValidationError("Code administrateur incorrect.")
         return code
      
-# 🔥 Widget personnalisé pour support multiple files
 class MultipleFileInput(ClearableFileInput):
     allow_multiple_selected = True
 
@@ -145,7 +143,7 @@ class ProduitForm(forms.ModelForm):
         pourcentage = cleaned_data.get('pourcentage')
         remise = cleaned_data.get('remise')
         
-        # 🔥 Logique de validation et calcul
+        #  Logique de validation et calcul
         # 1. Si remise est fournie mais prix_avant est vide -> le déduire (sans écraser une valeur déjà saisie)
         if remise and remise > 0:
             if prix is not None and prix > 0 and prix_avant is None:

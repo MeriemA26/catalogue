@@ -1,4 +1,3 @@
-# catalogue_app/pipeline.py
 import os
 import re
 from decimal import Decimal, InvalidOperation
@@ -11,7 +10,6 @@ import numpy as np
 import pytesseract
 from PIL import Image
 
-# 🔥 CHEMIN TESSERACT (à adapter selon votre installation)
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # Correction du chemin des modèles
@@ -29,7 +27,6 @@ _reader_ar = None
 # Configuration Tesseract
 TESSERACT_AR_CONFIG = '-l ara --psm 6 --oem 3'
 TESSERACT_FR_CONFIG = '-l fra --psm 6 --oem 3'
-
 
 # ============================================================
 # FONCTIONS DE DÉTECTION DE LANGUE
@@ -488,7 +485,7 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
                     print(f"   ✅ Pourcentage détecté: {extracted_value}%")
                     
             elif class_name == 'description':
-                # 🔥 Utiliser la fonction avec détection de langue
+                # Utiliser la fonction avec détection de langue
                 extracted_value = extract_description_text(roi, reader_latin, reader_ar)
                 
                 # Nettoyer la description
@@ -500,7 +497,7 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
                     print(f"   ✅ Desc 1: {extracted_value[:50]}...")
                     
             elif class_name == 'description2':
-                # 🔥 Utiliser la fonction avec détection de langue
+                #  Utiliser la fonction avec détection de langue
                 extracted_value = extract_description_text(roi, reader_latin, reader_ar)
                 
                 if extracted_value:
@@ -511,7 +508,7 @@ def process_catalogue_image(image_path, conf_product=0.45, conf_field=0.45, debu
                     print(f"   ✅ Desc 2: {extracted_value[:50]}...")
                     
             elif class_name == 'description3':
-                # 🔥 Utiliser la fonction avec détection de langue
+                #  Utiliser la fonction avec détection de langue
                 extracted_value = extract_description_text(roi, reader_latin, reader_ar)
                 
                 if extracted_value:

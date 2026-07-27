@@ -1,10 +1,7 @@
-# catalogue_app/utils.py
 import os
 import cv2
 from decimal import Decimal
 from django.conf import settings
-
-# Importer les fonctions de pipeline
 from .pipeline import process_catalogue_image, extract_price, extract_percentage, extract_text
 
 class OCRProcessor:
@@ -113,7 +110,7 @@ class OCRProcessor:
                     desc_2 = self._clean_description(produit.get('desc_2', ''))
                     desc_3 = self._clean_description(produit.get('desc_3', ''))
                     
-                    # ⚠️ IMPORTANT: Récupérer les noms
+                    # IMPORTANT: Récupérer les noms
                     nom_fr = produit.get('nom_fr', '').strip()
                     nom_ar = produit.get('nom_ar', '').strip()
                     
@@ -178,18 +175,18 @@ class OCRProcessor:
             gray = cv2.cvtColor(image_big, cv2.COLOR_BGR2GRAY)
             _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             
-            # 🔥 Essayer avec le reader latin
+            #  Essayer avec le reader latin
             results_latin = reader_latin.readtext(thresh, detail=0)
             texts_latin = ' '.join(results_latin) if results_latin else ""
             
-            # 🔥 Essayer avec le reader arabe
+            #  Essayer avec le reader arabe
             results_ar = reader_ar.readtext(thresh, detail=0)
             texts_ar = ' '.join(results_ar) if results_ar else ""
             
-            # 🔥 Combiner les résultats
+            #  Combiner les résultats
             combined = texts_latin + " " + texts_ar
             
-            # 🔥 Nettoyer les doublons approximatifs
+            #  Nettoyer les doublons approximatifs
             # On garde les deux car ils peuvent être différents
             return combined.strip()
             

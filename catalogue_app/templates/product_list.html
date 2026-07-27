@@ -1,4 +1,3 @@
-<!-- catalogue_app/templates/product_list.html -->
 {% extends 'base.html' %}
 
 {% block content %}
@@ -25,7 +24,7 @@
     </div>
 </div>
 
-<!-- 🔥 FILTRES -->
+<!-- FILTRES -->
 <div class="card border-0 shadow-sm mb-4">
     <div class="card-body">
         <form method="get" class="row g-3 align-items-end">
@@ -96,7 +95,7 @@
 </div>
 
 {% if tous_les_catalogues %}
-    <!-- 🔥 AFFICHER TOUS LES CATALOGUES FILTRÉS -->
+    <!--  AFFICHER TOUS LES CATALOGUES FILTRÉS -->
     {% for item in tous_les_catalogues %}
         {% with catalogue=item.catalogue produits=item.produits %}
         <!-- Carte catalogue -->
@@ -122,7 +121,7 @@
                         <span class="badge bg-primary rounded-pill px-3 py-2">
                             <i class="fas fa-box me-1"></i> {{ produits.count }} produit{{ produits.count|pluralize }}
                         </span>
-                        <!-- 🔥 Bouton EXPORTER PAR CATALOGUE -->
+                        <!--  Bouton EXPORTER PAR CATALOGUE -->
                         <a href="{% url 'export_catalogue_excel' catalogue.id %}" class="btn btn-export btn-sm" style="text-decoration: none;">
                             <i class="fas fa-file-excel me-1"></i>Exporter Excel
                         </a>
@@ -249,7 +248,7 @@
     </div>
 {% endif %}
 
-<!-- ⭐ MODALE DE CONFIRMATION DE SUPPRESSION -->
+<!--  MODALE DE CONFIRMATION DE SUPPRESSION -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content modal-confirm">
@@ -289,7 +288,7 @@ $(document).ready(function() {
     var productIdToDelete = null;
     var rowToDelete = null;
     
-    // 🔥 Ouvre la modale de confirmation
+    //  Ouvre la modale de confirmation
     $('.delete-product-btn').click(function() {
         productIdToDelete = $(this).data('product-id');
         var productName = $(this).data('product-name') || 'ce produit';
@@ -302,7 +301,7 @@ $(document).ready(function() {
         $('#deleteModal').modal('show');
     });
     
-    // 🔥 Confirmation de suppression
+    //  Confirmation de suppression
     $('#confirmDeleteBtn').click(function() {
         if (!productIdToDelete) return;
         
@@ -340,7 +339,7 @@ $(document).ready(function() {
         });
     });
     
-    // 🔥 Réinitialiser quand la modale est fermée
+    //  Réinitialiser quand la modale est fermée
     $('#deleteModal').on('hidden.bs.modal', function() {
         productIdToDelete = null;
         rowToDelete = null;

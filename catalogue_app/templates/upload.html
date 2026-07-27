@@ -1,4 +1,3 @@
-<!-- catalogue_app/templates/upload.html -->
 {% extends 'base.html' %}
 {% load static %}
 
@@ -432,7 +431,7 @@ $(document).ready(function () {
             ? '<img src="' + p.image_url + '" class="product-thumb" style="width:50px;height:50px;object-fit:cover;border-radius:5px;border:1px solid #ddd;cursor:pointer;" title="Cliquer pour agrandir" >'
             : '<span class="text-muted"><i class="fas fa-image"></i></span>';
             
-        // 🔥 STYLE PRIX - Même que product_list.html
+        //  STYLE PRIX - Même que product_list.html
         var prixHtml = '';
         if (p.prix) {
             var prix = parseFloat(p.prix);
@@ -443,7 +442,7 @@ $(document).ready(function () {
             prixHtml = '<span class="text-muted">-</span>';
         }
 
-        // 🔥 STYLE PRIX AVANT - Même que product_list.html
+        //  STYLE PRIX AVANT - Même que product_list.html
         var prixAvantHtml = '';
         if (p.prix_avant) {
             var prixAvant = parseFloat(p.prix_avant);
@@ -454,7 +453,7 @@ $(document).ready(function () {
             prixAvantHtml = '<span class="text-muted">-</span>';
         }
 
-        // 🔥 STYLE POURCENTAGE - Même que product_list.html
+        //  STYLE POURCENTAGE - Même que product_list.html
         var pctHtml = '';
         if (p.pourcentage) {
             var pct = parseFloat(p.pourcentage);
@@ -568,21 +567,21 @@ $(document).ready(function () {
     //  DÉTECTION "TOUS SÉLECTIONNÉS" - REDIRECTION VERS HISTORIQUE
     // ================================================================
 
-    // 🔥 Fonction pour vérifier si tous les produits visibles sont sélectionnés (ceux qui ne sont pas cachés par le filtre)
+    //  Fonction pour vérifier si tous les produits visibles sont sélectionnés (ceux qui ne sont pas cachés par le filtre)
     function areAllVisibleProductsSelected() {
         var totalRows = $('#productTableBody tr:visible').length;
         var checkedRows = $('#productTableBody tr:visible').find('input[name="selected_products"]:checked').length;
         return totalRows > 0 && totalRows === checkedRows;
     }
 
-    // 🔥 Fonction pour vérifier si TOUS les produits du tableau (y compris cachés) sont sélectionnés
+    //  Fonction pour vérifier si TOUS les produits du tableau (y compris cachés) sont sélectionnés
     function areAllProductsInTableSelected() {
         var totalRows = $('#productTableBody tr').length;
         var checkedRows = $('input[name="selected_products"]:checked').length;
         return totalRows > 0 && totalRows === checkedRows;
     }
 
-    // 🔥 Fonction pour vérifier si un filtre est actif
+    //  Fonction pour vérifier si un filtre est actif
     function isFilterActive() {
         return $('#marqueSearchInput').val().trim().length > 0;
     }
@@ -718,8 +717,8 @@ $(document).ready(function () {
         var allVisibleSelected = areAllVisibleProductsSelected();
         var allTableSelected = areAllProductsInTableSelected();
         
-        // 🔥 SI FILTRE ACTIF : vérifier si tous les produits VISIBLES sont sélectionnés
-        // 🔥 SI PAS DE FILTRE : vérifier si TOUS les produits du tableau sont sélectionnés
+        //  SI FILTRE ACTIF : vérifier si tous les produits VISIBLES sont sélectionnés
+        //  SI PAS DE FILTRE : vérifier si TOUS les produits du tableau sont sélectionnés
         var shouldRedirect = false;
         
         if (filterActive) {
@@ -731,7 +730,7 @@ $(document).ready(function () {
         }
         
         if (shouldRedirect) {
-            // 🔥 TOUS SÉLECTIONNÉS (avec filtre) → Sauvegarder les sélectionnés et rediriger vers product_list
+            //  TOUS SÉLECTIONNÉS (avec filtre) → Sauvegarder les sélectionnés et rediriger vers product_list
             modalState.action = 'save_selected_redirect';
             modalState.count = count;
             // Utiliser la modale "Sauvegarder tous" mais avec une action différente
@@ -788,7 +787,7 @@ $(document).ready(function () {
         }
         
         if (shouldRedirect) {
-            // 🔥 TOUS SÉLECTIONNÉS → Supprimer les sélectionnés et rediriger vers product_list
+            //  TOUS SÉLECTIONNÉS → Supprimer les sélectionnés et rediriger vers product_list
             modalState.action = 'delete_selected_redirect';
             modalState.count = count;
             $('#deleteAllCount').text(count);
@@ -836,13 +835,13 @@ $(document).ready(function () {
         setTimeout(function() {
             var form = $('#productForm');
             form.attr('action', "{% url 'save_selected_products' %}");
-            // 🔥 Supprimer l'ancien paramètre s'il existe
+            //  Supprimer l'ancien paramètre s'il existe
             form.find('input[name="redirect_to_list"]').remove();
             form.submit();
         }, 300);
     });
 
-    // 🔥 Confirmation Sauvegarder tous OU Sauvegarder sélectionnés avec redirection
+    //  Confirmation Sauvegarder tous OU Sauvegarder sélectionnés avec redirection
     $('#confirmSaveAllBtn').off('click').on('click', function() {
         var action = modalState.action;
         if (action !== 'save_all' && action !== 'save_selected_redirect') {
@@ -857,7 +856,7 @@ $(document).ready(function () {
             var form = $('#productForm');
             
             if (action === 'save_selected_redirect') {
-                // 🔥 Sauvegarder les sélectionnés avec redirection vers product_list
+                //  Sauvegarder les sélectionnés avec redirection vers product_list
                 form.attr('action', "{% url 'save_selected_products' %}");
                 // Ajouter le paramètre de redirection
                 form.find('input[name="redirect_to_list"]').remove();
@@ -892,7 +891,7 @@ $(document).ready(function () {
         }, 300);
     });
 
-    // 🔥 Confirmation Supprimer tous OU Supprimer sélectionnés avec redirection
+    //  Confirmation Supprimer tous OU Supprimer sélectionnés avec redirection
     $('#confirmDeleteAllBtn').off('click').on('click', function() {
         var action = modalState.action;
         if (action !== 'delete_all' && action !== 'delete_selected_redirect') {
@@ -906,7 +905,7 @@ $(document).ready(function () {
         setTimeout(function() {
             var form = $('#productForm');
             if (action === 'delete_selected_redirect') {
-                // 🔥 Supprimer les sélectionnés avec redirection vers product_list
+                //  Supprimer les sélectionnés avec redirection vers product_list
                 form.attr('action', "{% url 'delete_selected_products' %}");
                 // Ajouter le paramètre de redirection
                 form.find('input[name="redirect_to_list"]').remove();
@@ -986,7 +985,7 @@ $(document).ready(function () {
         var form = document.getElementById('uploadForm');
         var fd = new FormData(form);
         
-        // 🔥 Vérifier les dates côté client
+        //  Vérifier les dates côté client
         var dateDebut = fd.get('date_debut');
         var dateFin = fd.get('date_fin');
         
@@ -1013,7 +1012,7 @@ $(document).ready(function () {
         // Supprimer les anciennes alertes
         $('.alert-danger.custom-alert').remove();
 
-        // 🔥 Variables pour le suivi
+        //  Variables pour le suivi
         var totalProduitsGlobal = 0;
         var totalProduitsPage = 0;
         var nbTraitesPage = 0;

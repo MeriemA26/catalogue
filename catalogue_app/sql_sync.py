@@ -29,7 +29,7 @@ class SQLServerSync:
         try:
             cursor = conn.cursor()
             
-            # 🔥 Table Extraction avec id_sqlite
+            # Table Extraction avec id_sqlite
             cursor.execute("""
                 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='extraction' AND xtype='U')
                 CREATE TABLE extraction (
@@ -50,7 +50,7 @@ class SQLServerSync:
                 )
             """)
             
-            # 🔥 Table Catalogue avec id_sqlite
+            #  Table Catalogue avec id_sqlite
             cursor.execute("""
                 IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='catalogues' AND xtype='U')
                 CREATE TABLE catalogues (

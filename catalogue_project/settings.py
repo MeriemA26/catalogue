@@ -106,9 +106,6 @@ MODEL_DETAILS_PATH = os.path.join(MODELS_DIR, 'best_details.pt')
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# catalogue_project/settings.py
-# Ajouter à la fin du fichier
-
 # Configuration des logs
 LOGGING = {
     'version': 1,

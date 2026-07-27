@@ -1,4 +1,3 @@
-# catalogue_app/models.py
 from django.db import models
 from django.utils import timezone
 from decimal import Decimal, InvalidOperation 
@@ -104,12 +103,12 @@ class Produit(models.Model):
             return None
         try:
             if isinstance(value, Decimal):
-                # 🔥 Si la valeur est négative, on retourne None
+                # Si la valeur est négative, on retourne None
                 if value < 0:
                     return None
                 return value
             if isinstance(value, (int, float)):
-                # 🔥 Si la valeur est négative, on retourne None
+                #  Si la valeur est négative, on retourne None
                 if value < 0:
                     return None
                 return Decimal(str(value))
@@ -123,7 +122,7 @@ class Produit(models.Model):
                 if not re.search(r'\d', cleaned):
                     return None
                 dec = Decimal(cleaned)
-                # 🔥 Si la valeur est négative, on retourne None
+                #  Si la valeur est négative, on retourne None
                 if dec < 0:
                     return None
                 return dec
@@ -132,13 +131,13 @@ class Produit(models.Model):
         return None
     
     def save(self, *args, **kwargs):
-        # 🔥 Nettoyer TOUS les champs décimaux avant la sauvegarde
+        #  Nettoyer TOUS les champs décimaux avant la sauvegarde
         self.prix = self.clean_decimal(self.prix)
         self.prix_avant = self.clean_decimal(self.prix_avant)
         self.pourcentage = self.clean_decimal(self.pourcentage)
         self.remise = self.clean_decimal(self.remise)
         
-        # 🔥 Le calcul automatique des champs manquants ne s'applique QU'À LA CRÉATION
+        #  Le calcul automatique des champs manquants ne s'applique QU'À LA CRÉATION
         # (juste après l'extraction OCR/YOLO, quand certains champs sont encore vides).
         # Lors d'une modification (edit_product), on enregistre EXACTEMENT ce qui a été
         # saisi/validé dans le formulaire, sans recalcul automatique derrière.
@@ -153,7 +152,7 @@ class Produit(models.Model):
     
     def calculer_champs(self):
         """Calcule automatiquement les champs manquants - NE JAMAIS PLANTER
-        🔥 Ne remplace JAMAIS une valeur déjà saisie/présente : ne calcule QUE ce qui est None.
+         Ne remplace JAMAIS une valeur déjà saisie/présente : ne calcule QUE ce qui est None.
         """
         try:
             prix = self.prix
@@ -196,7 +195,6 @@ class Produit(models.Model):
     def __str__(self):
         return self.nom or f"Produit #{self.id}"
 
-# catalogue_app/models.py — à ajouter
 class JournalAction(models.Model):
     ACTION_CHOICES = [
         ('ajout', 'Ajout'),
