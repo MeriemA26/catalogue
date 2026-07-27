@@ -55,6 +55,24 @@ class Catalogue(models.Model):
     def __str__(self):
         note_str = f" - {self.note}" if self.note else ""
         return f"{self.enseigne.get_nom_display()} - {self.date_debut} à {self.date_fin}{note_str}"
+
+
+class CatalogueImage(models.Model):
+    """Une ligne par image/page appartenant à un catalogue (persistant en base)."""
+    catalogue = models.ForeignKey(
+        Catalogue, on_delete=models.CASCADE, related_name='images', verbose_name="Catalogue"
+    )
+    chemin = models.CharField(max_length=255, verbose_name="Chemin de l'image")
+    ordre = models.PositiveIntegerField(default=0, verbose_name="Ordre (page)")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['ordre', 'created_at']
+        verbose_name = "Image du catalogue"
+        verbose_name_plural = "Images du catalogue"
+
+    def __str__(self):
+        return f"{self.catalogue} - page {self.ordre + 1}"
     
 class Produit(models.Model):
     catalogue = models.ForeignKey(Catalogue, on_delete=models.CASCADE, related_name='produits', verbose_name="Catalogue")

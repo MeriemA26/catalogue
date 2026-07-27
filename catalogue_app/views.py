@@ -16,7 +16,7 @@ from django.http import StreamingHttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
 import time
-from .models import Enseigne, Catalogue, Produit , JournalAction
+from .models import Enseigne, Catalogue, Produit , JournalAction ,CatalogueImage
 from .forms import UploadForm, ProduitForm,AdminCreationForm
 from .utils import OCRProcessor
 import openpyxl
@@ -258,14 +258,13 @@ def index(request):
 @login_required
 def upload(request):
     """Page d'upload avec traitement OCR pour une ou plusieurs images"""
-    # Initialiser last_uploaded_image
     last_uploaded_image = request.session.get('last_uploaded_image', None)
     last_uploaded_images = request.session.get('last_uploaded_images', [])
-    
+
     #  Récupérer le catalogue actuel depuis la session
     catalogue_id = request.session.get('active_catalogue_id', None)
     catalogue_actuel = None
-    
+
     if catalogue_id:
         try:
             catalogue_actuel = Catalogue.objects.get(id=catalogue_id)
@@ -273,46 +272,44 @@ def upload(request):
         except Catalogue.DoesNotExist:
             catalogue_actuel = None
             if 'active_catalogue_id' in request.session:
-                        del request.session['active_catalogue_id']
-            
-            #  Si pas de catalogue dans la session, vérifier s'il y a des produits non sauvegardés
-            if not catalogue_actuel:
-                    produits_non_sauvegardes_total = Produit.objects.filter(
-                        est_sauvegarde=False, cree_par=request.user
-                    ).count()
-            if produits_non_sauvegardes_total > 0:
-                        dernier_catalogue = Catalogue.objects.filter(
-                            produits__est_sauvegarde=False, produits__cree_par=request.user
-                        ).distinct().order_by('-date_upload').first()
-            if dernier_catalogue:
-                catalogue_actuel = dernier_catalogue
-                request.session['active_catalogue_id'] = dernier_catalogue.id
-                print(f"Catalogue récupéré depuis la base: ID {dernier_catalogue.id}")
-        else:
-            # Si plus de produits, nettoyer la session
-            if 'last_uploaded_images' in request.session:
-                del request.session['last_uploaded_images']
-            if 'last_uploaded_image' in request.session:
-                del request.session['last_uploaded_image']
-            if 'active_catalogue_id' in request.session:
                 del request.session['active_catalogue_id']
-            last_uploaded_images = []
-            last_uploaded_image = None
-            print("Session nettoyée (plus de produits)")
-    
+
+    #  Si pas de catalogue en session (reconnexion après déconnexion, session expirée...)
+    #  on le retrouve via les produits non sauvegardés de l'utilisateur connecté
+    if not catalogue_actuel:
+        dernier_produit_en_attente = Produit.objects.filter(
+            est_sauvegarde=False, cree_par=request.user
+        ).order_by('-created_at').first()
+
+        if dernier_produit_en_attente and dernier_produit_en_attente.catalogue:
+            catalogue_actuel = dernier_produit_en_attente.catalogue
+            request.session['active_catalogue_id'] = catalogue_actuel.id
+            print(f"✅ Catalogue restauré depuis la base après reconnexion: ID {catalogue_actuel.id}")
+
+    #  Si toujours aucun catalogue -> vraiment plus rien en cours, on nettoie la session
+    if not catalogue_actuel:
+        for key in ('last_uploaded_images', 'last_uploaded_image', 'active_catalogue_id'):
+            if key in request.session:
+                del request.session[key]
+        last_uploaded_images = []
+        last_uploaded_image = None
+        print(" Session nettoyée (aucun catalogue/produit en cours)")
+
     # Si pas d'image dans last_uploaded_image mais des images dans last_uploaded_images
     if not last_uploaded_image and last_uploaded_images:
         last_uploaded_image = last_uploaded_images[0] if last_uploaded_images else None
-    
-    # Récupérer l'image du catalogue si elle n'est pas dans la session
-    if not last_uploaded_image and catalogue_actuel and catalogue_actuel.image_path:
-        last_uploaded_image = os.path.join(settings.MEDIA_URL, catalogue_actuel.image_path)
-        request.session['last_uploaded_image'] = last_uploaded_image
-        if not last_uploaded_images:
-            last_uploaded_images = [last_uploaded_image]
+
+    #  Récupérer TOUTES les images du catalogue depuis la base si absentes de la session
+    if not last_uploaded_images and catalogue_actuel:
+        images_qs = catalogue_actuel.images.order_by('ordre', 'created_at')
+        images_depuis_base = [os.path.join(settings.MEDIA_URL, img.chemin) for img in images_qs]
+
+        if images_depuis_base:
+            last_uploaded_images = images_depuis_base
+            last_uploaded_image = images_depuis_base[0]
             request.session['last_uploaded_images'] = last_uploaded_images
-        print(f"Image récupérée depuis le catalogue ID {catalogue_actuel.id}")
-    
+            request.session['last_uploaded_image'] = last_uploaded_image
+            print(f"✅ {len(images_depuis_base)} image(s) restaurée(s) depuis la base pour le catalogue {catalogue_actuel.id}")
     # DEBUG - Afficher l'état de la session
     print("=" * 80)
     print("🔍 UPLOAD VIEW - ÉTAT DE LA SESSION")
@@ -597,7 +594,8 @@ def upload(request):
         'total_catalogues': Catalogue.objects.count(),
         'total_produits': total_produits,
         'produits_sauvegardes': produits_sauvegardes,
-        'produits_non_sauvegardes': produits_non_sauvegardes_total,
+        'produits_non_sauvegardes': produits_non_sauvegardes,      # ✅ compteur de l'utilisateur connecté
+        'produits_non_sauvegardes_total': produits_non_sauvegardes_total,  # gardé si utilisé ailleurs (dashboard admin)
         'last_uploaded_image': last_uploaded_image,
         'last_uploaded_images': last_uploaded_images,
         'catalogue_actuel': catalogue_actuel,
@@ -704,14 +702,19 @@ def upload_stream(request):
                 images_paths.append(image_path)
                 image_url = os.path.join(settings.MEDIA_URL, image_path)
                 all_image_urls.append(image_url)
-                
-                # Si c'est la première image, la sauvegarder dans le catalogue
-                if img_idx == 0:
+
+                #  Sauvegarder CHAQUE image en base (persiste après déconnexion)
+                ordre_actuel = catalogue.images.count()
+                CatalogueImage.objects.create(catalogue=catalogue, chemin=image_path, ordre=ordre_actuel)
+
+                # On garde aussi la 1ère image dans catalogue.image_path (compat exports Excel, etc.)
+                if not catalogue.image_path:
                     catalogue.image_path = image_path
                     catalogue.save()
-                    media_image_url = os.path.join(settings.MEDIA_URL, image_path)
-                    yield f"data: {json.dumps({'type': 'catalogue', 'image_url': media_image_url, 'catalogue_id': catalogue.id, 'page': img_idx + 1, 'total_pages': len(images)})}\n\n"
 
+                # Envoyer l'aperçu au client (comportement inchangé : on affiche chaque page traitée)
+                media_image_url = os.path.join(settings.MEDIA_URL, image_path)
+                yield f"data: {json.dumps({'type': 'catalogue', 'image_url': media_image_url, 'catalogue_id': catalogue.id, 'page': img_idx + 1, 'total_pages': len(images)})}\n\n"
                 full_path = os.path.join(settings.MEDIA_ROOT, image_path)
 
                 image_cv = cv2.imread(full_path)
@@ -979,22 +982,16 @@ def upload_stream(request):
                 yield f"data: {json.dumps({'type': 'page_done', 'page': img_idx + 1, 'count': total})}\n\n"
 
             #  Combiner les images existantes et nouvelles
-            final_image_urls = []
-            if existing_images:
-                final_image_urls.extend(existing_images)
-                print(f"📌 {len(existing_images)} images existantes conservées")
-            
-            for url in all_image_urls:
-                if url not in final_image_urls:
-                    final_image_urls.append(url)
-            
+            #  Source unique de vérité = la base (fiable même après déconnexion)
+            images_qs = catalogue.images.order_by('ordre', 'created_at')
+            final_image_urls = [os.path.join(settings.MEDIA_URL, img.chemin) for img in images_qs]
+
             if final_image_urls:
                 request.session['last_uploaded_images'] = final_image_urls
                 request.session['last_uploaded_image'] = final_image_urls[0]
                 request.session.modified = True
                 request.session.save()
-                print(f"✅ {len(final_image_urls)} images totales sauvegardées dans la session")
-
+                print(f"✅ {len(final_image_urls)} images totales (depuis la base) sauvegardées dans la session")
             # Fin du traitement - toutes les images traitées
             yield f"data: {json.dumps({'type': 'done', 'count': total_produits, 'pages': len(images), 'images': final_image_urls})}\n\n"
 
