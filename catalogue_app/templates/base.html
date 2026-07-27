@@ -28,8 +28,13 @@
 
     <!-- SIDEBAR -->
     <nav class="sidebar-delice" id="sidebarDelice">
-        <div class="sidebar-brand" id="sidebarBrandToggle">
-            <img src="{% static 'images/logo_delice.png' %}" alt="Délice">
+        <div class="sidebar-brand">
+            <div class="sidebar-brand-top">
+                <img src="{% static 'images/Logo-Délice-Danone-FR.png' %}" alt="Délice">
+                <button class="sidebar-close-btn" id="sidebarCloseBtn" type="button" aria-label="Fermer le menu">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
             <span>Catalogue Manager</span>
         </div>
 
@@ -114,22 +119,32 @@
     <script>
         const sidebar = document.getElementById('sidebarDelice');
         const mainWrapper = document.getElementById('mainWrapper');
-        const brandToggle = document.getElementById('sidebarBrandToggle');
+        const closeBtn = document.getElementById('sidebarCloseBtn');
         const reopenBtn = document.getElementById('sidebarReopenBtn');
         const isMobile = () => window.innerWidth <= 991;
 
-        function toggleSidebar() {
+        function openSidebar() {
             if (isMobile()) {
-                sidebar.classList.toggle('show');
+                sidebar.classList.add('show');
             } else {
-                sidebar.classList.toggle('hidden');
-                mainWrapper.classList.toggle('sidebar-is-hidden');
-                reopenBtn.classList.toggle('show');
+                sidebar.classList.remove('hidden');
+                mainWrapper.classList.remove('sidebar-is-hidden');
+                reopenBtn.classList.remove('show');
             }
         }
 
-        brandToggle.addEventListener('click', toggleSidebar);
-        reopenBtn.addEventListener('click', toggleSidebar);
+        function closeSidebar() {
+            if (isMobile()) {
+                sidebar.classList.remove('show');
+            } else {
+                sidebar.classList.add('hidden');
+                mainWrapper.classList.add('sidebar-is-hidden');
+                reopenBtn.classList.add('show');
+            }
+        }
+
+        closeBtn.addEventListener('click', closeSidebar);
+        reopenBtn.addEventListener('click', openSidebar);
     </script>
 
     {% block extra_js %}{% endblock %}

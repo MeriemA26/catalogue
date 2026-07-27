@@ -129,7 +129,7 @@ def creer_compte(request):
             user = form.save(commit=False)
             user.is_staff = False
             user.save()
-            messages.success(request, f"✅ Compte employé '{user.username}' créé avec succès.")
+            messages.success(request, f" Compte employé '{user.username}' créé avec succès.")
             return redirect('creer_compte')
     else:
         form = EmployeCreationForm()
